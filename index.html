@@ -1,0 +1,574 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Framer Projection Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: instrument panel on the left, projection on the wall as the working surface on the right */
+:root{
+  --bg:#EEF0F3; --panel:#FFFFFF; --fg:#14171C; --muted:#5A616D; --line:#D6DAE0; --accent:#B86E14; --accent-soft:#F6E7D2; --warn:#A8461B; --warn-soft:#FBE6DC;
+  --f-ui:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif; --f-num:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0F1114;--panel:#171A1F;--fg:#E5E7EA;--muted:#99A0AB;--line:#2A2F37;--accent:#E9A64E;--accent-soft:#33281A;--warn:#F08A5D;--warn-soft:#3A2219;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0F1114;--panel:#171A1F;--fg:#E5E7EA;--muted:#99A0AB;--line:#2A2F37;--accent:#E9A64E;--accent-soft:#33281A;--warn:#F08A5D;--warn-soft:#3A2219;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:14px;line-height:1.45;padding-block:16px 32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;margin:0 auto 16px;max-width:1280px}
+h1{font-size:20px;font-weight:600;margin:0;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:13px}
+.app{display:grid;grid-template-columns:330px minmax(0,1fr);gap:16px;max-width:1280px;margin:0 auto;align-items:start}
+@media (max-width:900px){.app{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.sec{display:flex;flex-direction:column;gap:9px}
+.sec+.sec{border-top:1px solid var(--line);padding-top:14px}
+.lbl{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.row{display:grid;grid-template-columns:96px minmax(0,1fr) 62px;align-items:center;gap:8px}
+.row label{color:var(--muted);font-size:13px}
+.val{font-family:var(--f-num);font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.seg{display:flex;flex-wrap:wrap;gap:4px}
+.seg button{flex:1 1 auto;font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:6px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent);color:var(--fg)}
+.seg button:focus-visible,summary:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.gobo-wrap{display:flex;gap:12px;align-items:center}
+#goboCv{width:120px;height:120px;border-radius:50%;border:1px solid var(--line);flex:none;background:#000}
+.note{color:var(--muted);font-size:12px}
+.file{font-size:12px;max-width:100%}
+.chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+details summary{cursor:pointer;color:var(--muted);font-size:13px}
+details .sec{margin-top:10px}
+.stage{display:flex;flex-direction:column;gap:12px;min-width:0}
+.view{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.viewbar{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:center}
+.cvbox{position:relative;width:100%;max-width:820px;aspect-ratio:1/1;margin:0 auto}
+.cvbox.v3d{aspect-ratio:4/3}
+#three{position:absolute;inset:0;border-radius:6px;overflow:hidden;background:#141518;touch-action:none}
+#three canvas{display:block;width:100%!important;height:100%!important}
+.hint3d{position:absolute;left:10px;bottom:8px;font-size:11px;color:rgba(255,255,255,.55);pointer-events:none}
+#resetCam{position:absolute;right:8px;top:8px;font:inherit;font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.25);background:rgba(20,21,24,.7);color:#eee;cursor:pointer}
+fieldset{border:0;margin:0;padding:0;min-width:0;display:flex;flex-direction:column;gap:9px}
+fieldset:disabled{opacity:.38}
+.numin{width:62px;font:inherit;font-family:var(--f-num);font-size:12px;text-align:right;background:transparent;color:var(--fg);border:1px solid var(--line);border-radius:5px;padding:2px 4px}
+#wall{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:6px;background:#1D1E21}
+.legend{display:flex;align-items:center;gap:8px;font-family:var(--f-num);font-size:11px;color:var(--muted)}
+#legBar{height:10px;flex:1;border-radius:3px;min-width:80px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.card{border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.card .k{font-size:12px;color:var(--muted)}
+.card .v{font-family:var(--f-num);font-size:16px;font-variant-numeric:tabular-nums;margin-top:2px}
+.card .v small{font-size:11px;color:var(--muted)}
+.lower{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+@media (max-width:700px){.lower{grid-template-columns:minmax(0,1fr)}}
+#schem{width:100%;height:auto;display:block}
+.warn{background:var(--warn-soft);color:var(--warn);border-radius:6px;padding:7px 10px;font-size:13px}
+.passport{font-family:var(--f-num);font-size:12px;display:grid;grid-template-columns:auto 1fr;gap:3px 12px}
+.passport span:nth-child(odd){color:var(--muted);font-family:var(--f-ui)}
+.blade{display:grid;grid-template-columns:48px minmax(0,1fr) 46px minmax(0,1fr) 40px;align-items:center;gap:6px}
+.blade label{color:var(--muted);font-size:13px}
+.blade .val{font-size:11px}
+.shotbtn{font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--fg);border-radius:6px;cursor:pointer}
+.shotbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;z-index:20}
+.modal{position:fixed;inset:0;background:rgba(10,11,13,.72);display:flex;align-items:center;justify-content:center;z-index:30;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.modal .box{background:var(--panel);border-radius:10px;padding:12px;max-width:min(1100px,100%);max-height:100%;display:flex;flex-direction:column;gap:8px;overflow:auto}
+.modal img{max-width:100%;height:auto;border-radius:6px}
+.modal .bar{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13px;color:var(--muted)}
+.modal button{font:inherit;font-size:13px;padding:5px 10px;border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:6px;cursor:pointer}
+</style>
+
+<header>
+  <h1>Framer Projection Lab</h1>
+  <span class="sub">Prototype 0.5 · iGuzzini Palco Framer S892 · calibrated from LDT and on-site measurements, 26 Oct 2026</span>
+</header>
+
+<div class="app">
+  <aside class="panel">
+    <div class="sec">
+      <div class="lbl">Beam shaping</div>
+      <div class="seg" id="bfSeg">
+        <button data-v="shutter" aria-pressed="false">Shutters</button>
+        <button data-v="gobo" aria-pressed="true">Gobo</button>
+      </div>
+      <div class="gobo-wrap">
+        <canvas id="goboCv" width="240" height="240" aria-label="Gate view: gobo or shutters"></canvas>
+        <div class="note" id="gateNote"></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <fieldset id="fsGobo">
+        <div class="lbl">Gobo</div>
+        <div class="seg" id="goboSeg">
+          <button type="button" data-v="r30" aria-pressed="true">Circle Ø30</button>
+          <button type="button" data-v="r40" aria-pressed="false">Circle Ø40</button>
+          <button type="button" data-v="grid" aria-pressed="false">Grid</button>
+          <button type="button" data-v="img" aria-pressed="false">Custom</button>
+        </div>
+        <div id="imgBox" hidden class="sec">
+          <input type="file" id="imgFile" accept="image/*" class="file">
+          <label class="chk"><input type="checkbox" id="imgInv"> Invert (dark areas pass light)</label>
+          <div class="note">The image square maps to 40×40 mm of the gate. Light areas pass light, dark areas block it.</div>
+        </div>
+        <div class="row"><label for="rotG">Rotation</label><input type="range" id="rotG" min="-180" max="180" step="1" value="0"><span class="val" id="rotGv"></span></div>
+      </fieldset>
+    </div>
+
+    <div class="sec">
+      <fieldset id="fsShut" disabled>
+        <div class="lbl">Framing shutters</div>
+        <div class="blade"><span></span><span class="note">Insertion, mm</span><span></span><span class="note">Angle</span><span></span></div>
+        <div class="blade"><label for="shT">Top</label><input type="range" id="shT" min="0" max="20" step="0.1" value="12"><span class="val" id="shTv"></span><input type="range" id="aT" min="-45" max="45" step="1" value="0" aria-label="Top shutter angle"><span class="val" id="aTv"></span></div>
+        <div class="blade"><label for="shB">Bottom</label><input type="range" id="shB" min="0" max="20" step="0.1" value="12"><span class="val" id="shBv"></span><input type="range" id="aB" min="-45" max="45" step="1" value="0" aria-label="Bottom shutter angle"><span class="val" id="aBv"></span></div>
+        <div class="blade"><label for="shL">Left</label><input type="range" id="shL" min="0" max="20" step="0.1" value="16"><span class="val" id="shLv"></span><input type="range" id="aL" min="-45" max="45" step="1" value="0" aria-label="Left shutter angle"><span class="val" id="aLv"></span></div>
+        <div class="blade"><label for="shR">Right</label><input type="range" id="shR" min="0" max="20" step="0.1" value="16"><span class="val" id="shRv"></span><input type="range" id="aR" min="-45" max="45" step="1" value="0" aria-label="Right shutter angle"><span class="val" id="aRv"></span></div>
+        <div class="row"><label for="rotS">Module rotation</label><input type="range" id="rotS" min="-45" max="45" step="1" value="0"><span class="val" id="rotSv"></span></div>
+        <div class="note">Insertion is the edge distance from the gate centre, mm (20 = shutter out). Each magnetic shutter also rotates on its own; module rotation turns all four together. Open gate assumed Ø40 mm.</div>
+      </fieldset>
+    </div>
+
+    <div class="sec">
+      <div class="lbl">Geometry</div>
+      <div class="row"><label for="dist">Distance to wall</label><input type="range" id="dist" min="0" max="1000" step="1" value="350"><input type="number" class="numin" id="distNum" min="0.3" max="40" step="0.05" value="3" aria-label="Distance from fixture to wall, m"></div>
+      <div class="row"><label for="pan">Horizontal angle</label><input type="range" id="pan" min="-180" max="180" step="1" value="0"><input type="number" class="numin" id="panNum" min="-180" max="180" step="1" value="0" aria-label="Horizontal angle, degrees"></div>
+      <div class="row"><label for="tlt">Vertical angle</label><input type="range" id="tlt" min="-180" max="180" step="1" value="30"><input type="number" class="numin" id="tltNum" min="-180" max="180" step="1" value="30" aria-label="Vertical angle, degrees"></div>
+      <div id="geoWarn" class="warn" hidden></div>
+      <div class="note">Angles of the fixture axis to the wall normal. Horizontal +: fixture to the right of the aim point; vertical +: fixture above it. Distance is the fixed perpendicular distance from the fixture to the wall; the throw along the beam follows from the angles.</div>
+    </div>
+
+    <div class="sec">
+      <div class="lbl">Focus</div>
+      <div class="row"><label for="lens">Lens position</label><input type="range" id="lens" min="0" max="21.3" step="0.05" value="12"><input type="number" class="numin" id="lensNum" min="0" max="21.3" step="0.05" value="12" aria-label="Lens position from zero, mm"></div>
+      <button class="shotbtn" id="autoFocus" type="button" style="align-self:flex-start">Focus on aim point</button>
+      <div class="note" id="lensNote"></div>
+      <div id="focWarn" class="warn" hidden></div>
+    </div>
+
+    <details>
+      <summary>Fixture optics (passport and assumptions)</summary>
+      <div class="sec">
+        <div class="passport">
+          <span>Focal length (LDT, 50%)</span><span>90.6 mm</span>
+          <span>Visible-edge scale</span><span>87.3 mm</span>
+          <span>Focus scale</span><span>x = 11.0 + 2.59/(L − 0.50)</span>
+          <span>Visible Ø/L at ∞</span><span>0.347 (19.7°)</span>
+          <span>Near limit</span><span>0.75 m · travel 21.3 mm</span>
+          <span>Field</span><span>LDT GOBO40A, ×6.05 klm</span>
+          <span>Aperture (estimate)</span><span>40 mm</span>
+          <span>Edge softness</span><span>0.15°</span>
+        </div>
+        <div class="note">The only control on the fixture is the lens travel. Aperture sets the blur outside the plane of focus; it is an estimate and not yet calibrated. The projection scale (87.3 mm) is fitted so the visible edge (≈37% of field) matches the measurements and the iGuzzini catalogue. Edge softness is the optics' own blur.</div>
+      </div>
+    </details>
+  </aside>
+
+  <main class="stage">
+    <section class="view">
+      <div class="viewbar">
+        <div class="seg" id="viewSeg" style="flex:0 1 auto">
+          <button data-v="3d" aria-pressed="true">3D</button>
+          <button data-v="2d" aria-pressed="false">Wall 2D</button>
+        </div>
+        <div class="seg" id="modeSeg" style="flex:0 1 auto">
+          <button data-v="light" aria-pressed="true">Light</button>
+          <button data-v="lux" aria-pressed="false">Illuminance</button>
+        </div>
+        <label class="chk"><input type="checkbox" id="showEdge" checked> Visible edge</label>
+        <button class="shotbtn" id="shotBtn" type="button">Screenshot</button>
+      </div>
+      <div class="cvbox v3d" id="cvbox"><canvas id="wall" hidden aria-label="Projection on the wall with dimensions"></canvas><div id="three"><button id="resetCam" type="button">Reset view</button><span class="hint3d">Rotate: left button · Pan: right button · Zoom: wheel</span></div></div>
+      <div class="legend" id="legend" hidden><span>0</span><div id="legBar"></div><span id="legMax"></span></div>
+      <div class="cards" id="cards"></div>
+    </section>
+    <div class="lower">
+      <section class="view">
+        <div class="lbl" id="schemTitle">Set-up</div>
+        <svg id="schem" viewBox="0 0 340 232" role="img" aria-label="Fixture position relative to the wall"></svg>
+      </section>
+      <section class="view">
+        <div class="lbl">How to read it</div>
+        <div class="note" style="font-size:13px;line-height:1.55">The visible edge is the ≈37% level of the field, where the eye places the border of the spot; sizes are measured to it. Illuminance comes from the LDT with distance and angle of incidence. Blur grows where the wall leaves the plane of focus. Next: a pre-distorted gobo for ordering, loading any LDT/IES, and stray light outside the edge.</div>
+      </section>
+    </div>
+  </main>
+</div>
+<div id="toast" class="toast" hidden role="status"></div>
+<div id="modal" class="modal" hidden><div class="box"><div class="bar"><span>Clipboard access is blocked here. Right-click the image (long-press on a phone) and choose Copy image.</span><button id="modalClose" type="button">Close</button></div><img id="modalImg" alt="Screenshot of the scene with set-up parameters"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const C={FV:87.3,F0:90.6,XI:11.023,K:2.5896,C0:0.498,R0:0.37737,G:-0.0027233,TRAV:21.3,NEAR:0.75,KLM:6.05,VIS:0.37};
+const I40=[1830.4,1822.0,1809.5,1788.4,1758.5,1722.8,1693.2,1687.0,1692.4,1670.9];
+const $=id=>document.getElementById(id);
+const nf=(v,d)=>v.toFixed(d);
+const S={bf:'gobo',view:'3d',gobo:'r30',rotG:0,shT:12,shB:12,shL:16,shR:16,aT:0,aB:0,aL:0,aR:0,rotS:0,dist:3,pan:0,tlt:30,lens:12,ap:40,soft:0.15,mode:'light',edge:true};
+let IMG=null;
+
+function lensPos(df){return isFinite(df)?C.XI+C.K/(df-C.C0):C.XI}
+function dfOf(x){const u=x-C.XI;return Math.abs(u)<1e-6?Infinity:C.C0+C.K/u}
+function sOfX(x){return C.FV*(C.R0+C.G*C.XI)/(C.R0+C.G*x)}
+function field(rg){const g=Math.atan(rg/C.F0)*57.29578;if(g<=9){const i=Math.floor(g),t=g-i;return I40[i]*(1-t)+I40[Math.min(i+1,9)]*t}return Math.max(I40[9]-40*(g-9),900)}
+
+function goboT(x,y){
+  const r2=x*x+y*y;
+  switch(S.gobo){
+    case 'r30':return r2<=225?1:0;
+    case 'r40':return r2<=400?1:0;
+    case 'grid':{
+      if(r2>400)return 0;
+      if(y>14.5&&Math.abs(x)<(19.5-y)*0.7)return 0;
+      const fx=Math.abs(((x%5)+7.5)%5-2.5),fy=Math.abs(((y%5)+7.5)%5-2.5);
+      return (fx<0.4||fy<0.4)?0:1;}
+    case 'img':{
+      if(!IMG)return r2<=400?1:0;
+      const n=IMG.n,u=(x+20)/40*n-0.5,v=(20-y)/40*n-0.5;
+      if(u<0||v<0||u>=n-1||v>=n-1)return 0;
+      const i=u|0,j=v|0,a=u-i,b=v-j,d=IMG.d,k=j*n+i;
+      return (d[k]*(1-a)+d[k+1]*a)*(1-b)+(d[k+n]*(1-a)+d[k+n+1]*a)*b;}
+  }return 0;
+}
+let cG=1,sG=0,BL=[];
+function setRot(){
+  cG=Math.cos(S.rotG*Math.PI/180);sG=Math.sin(S.rotG*Math.PI/180);
+  BL=[[90,'shT','aT'],[270,'shB','aB'],[180,'shL','aL'],[0,'shR','aR']].map(([b,p,a])=>{const f=(b+S.rotS+S[a])*Math.PI/180;return[Math.cos(f),Math.sin(f),S[p]]});
+}
+function bladeAt(x,y){for(let i=0;i<4;i++){const b=BL[i];if(x*b[0]+y*b[1]>b[2])return true}return false}
+function mask(x,y){
+  if(S.bf==='shutter'){if(x*x+y*y>400)return 0;return bladeAt(x,y)?0:1}
+  return goboT(x*cG+y*sG,-x*sG+y*cG);
+}
+const OFF=[];for(let i=0;i<32;i++){const r=Math.sqrt((i+.5)/32),a=i*2.39996;OFF.push([r*Math.cos(a),r*Math.sin(a)])}
+const ROFF=1/OFF.length;
+function goboRmax(){return S.bf==='shutter'?20:S.gobo==='r30'?15:S.gobo==='img'?28.3:20}
+
+function geom(){
+  const H=S.dist,a=S.pan*Math.PI/180,b=S.tlt*Math.PI/180,ca=Math.cos(a)*Math.cos(b);
+  const L=ca>0.035?H/ca:H/0.035;
+  const F=[L*Math.sin(a)*Math.cos(b),L*Math.sin(b),L*Math.cos(a)*Math.cos(b)];
+  const t=Math.acos(Math.max(-1,Math.min(1,ca)));
+  const w=[-F[0]/L,-F[1]/L,-F[2]/L];
+  let e1=[-w[2],0,w[0]];
+  let n1=Math.hypot(...e1);if(n1<1e-6){e1=[1,0,0];n1=1}e1=e1.map(v=>v/n1);
+  const e2=[e1[1]*w[2]-e1[2]*w[1],e1[2]*w[0]-e1[0]*w[2],e1[0]*w[1]-e1[1]*w[0]];
+  const df=dfOf(S.lens);
+  return{F,w,e1,e2,L,H,ca,df,x:S.lens,s:sOfX(S.lens),theta:t};
+}
+
+const cv=$('wall'),ctx=cv.getContext('2d');
+const off=document.createElement('canvas'),octx=off.getContext('2d');
+let lastStats=null;
+
+function render(N){
+  const gg=geom(),gw=$('geoWarn');
+  if(gg.ca<=0.035){gw.hidden=false;gw.textContent=gg.ca<=0?'The fixture is behind or in the wall plane, so the beam does not reach the wall. Reduce the angles.':'The beam grazes the wall (incidence above 88°), so the result is unreliable.';return}
+  gw.hidden=true;
+  setRot();
+  const g=geom(),{F,w,e1,e2,s,df}=g;
+  const Rm=goboRmax()+3;
+  let umin=0,umax=0,vmin=0,vmax=0;
+  for(let k=0;k<96;k++){
+    const a=k/96*2*Math.PI,gx=Rm*Math.cos(a),gy=Rm*Math.sin(a);
+    const d=[w[0]+gx/s*e1[0]+gy/s*e2[0],w[1]+gx/s*e1[1]+gy/s*e2[1],w[2]+gx/s*e1[2]+gy/s*e2[2]];
+    let t=d[2]<-1e-6?-F[2]/d[2]:8*g.L;t=Math.min(t,8*g.L);
+    const u=F[0]+t*d[0],v=F[1]+t*d[1];
+    umin=Math.min(umin,u);umax=Math.max(umax,u);vmin=Math.min(vmin,v);vmax=Math.max(vmax,v);
+  }
+  const cu=(umin+umax)/2,cvv=(vmin+vmax)/2,half=Math.max(umax-umin,vmax-vmin)/2*1.3;
+  const U0=cu-half,V1=cvv+half,pix=2*half/N;
+  const E=new Float32Array(N*N),MB=new Float32Array(N*N),RD=new Float32Array(N*N);
+  const Ar=S.ap/2,R0=s*Math.tan(S.soft*Math.PI/180),idf=isFinite(df)?1/(df*1000):0;/* df<0: lens past ∞, virtual focus */
+  const k2=C.KLM*(s/C.FV)**2,lim=goboRmax()*1.0;
+  for(let j=0;j<N;j++){
+    const v=V1-(j+.5)*pix,dy=v-F[1];
+    for(let i=0;i<N;i++){
+      const u=U0+(i+.5)*pix,dx=u-F[0],dz=-F[2];
+      const dw=dx*w[0]+dy*w[1]+dz*w[2];if(dw<=1e-9)continue;
+      const gx=s*(dx*e1[0]+dy*e1[1]+dz*e1[2])/dw,gy=s*(dx*e2[0]+dy*e2[1]+dz*e2[2])/dw;
+      const dist=Math.sqrt(dx*dx+dy*dy+dz*dz);
+      const rd=s*Ar*Math.abs(1/(dist*1000)-idf),Rb=Math.sqrt(R0*R0+rd*rd);
+      const idx=j*N+i;RD[idx]=rd*dist*1000/s;
+      const rr=Math.sqrt(gx*gx+gy*gy);if(rr>lim+Rb)continue;
+      const h=Math.sin(i*12.9898+j*78.233)*43758.5453,ra=(h-Math.floor(h))*6.2832,cr=Math.cos(ra)*Rb,sr=Math.sin(ra)*Rb;
+      let m=0;for(let o=0;o<OFF.length;o++){const ox=OFF[o][0],oy=OFF[o][1];m+=mask(gx+ox*cr-oy*sr,gy+ox*sr+oy*cr)}m*=ROFF;
+      if(m<=0)continue;MB[idx]=m;
+      const I=field(rr*C.F0/s)*k2*m,ci=F[2]/dist;
+      E[idx]=I*ci/(dist*dist);
+    }
+  }
+  let Emax=0,cnt=0,Es=0,flux=0,cc=0,Ec=0,Ecmin=1e9,bu0=1e9,bu1=-1e9,bv0=1e9,bv1=-1e9,rdMin=1e9,rdMax=0,Emin=1e9;
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i,e=E[k];flux+=e;if(e>Emax)Emax=e;
+    if(MB[k]>=0.9){cc++;Ec+=e;if(e<Ecmin)Ecmin=e}
+    if(MB[k]>=C.VIS){cnt++;Es+=e;if(e<Emin)Emin=e;const u=U0+(i+.5)*pix,v=V1-(j+.5)*pix;if(u<bu0)bu0=u;if(u>bu1)bu1=u;if(v<bv0)bv0=v;if(v>bv1)bv1=v;
+      const edge=(i>0&&MB[k-1]<C.VIS)||(i<N-1&&MB[k+1]<C.VIS)||(j>0&&MB[k-N]<C.VIS)||(j<N-1&&MB[k+N]<C.VIS);
+      if(edge){const r=RD[k];if(r<rdMin)rdMin=r;if(r>rdMax)rdMax=r}}}
+  flux*=pix*pix;
+  const mc=(()=>{let m=0;const R=Math.sqrt(R0*R0+(s*Ar*Math.abs(1/(g.L*1000)-idf))**2);for(const o of OFF)m+=mask(R*o[0],R*o[1]);return m*ROFF})();
+  const Eaim=field(0)*k2*mc*Math.cos(g.theta)/(g.L*g.L);
+  lastStats={g,N,U0,V1,pix,half,Emax,Eaim,cnt,Eavg:cnt?Es/cnt:0,Emin:cnt?Emin:0,Ucore:cc?Ecmin/(Ec/cc):0,area:cnt*pix*pix,flux,bu0,bu1,bv0,bv1,rdMin:cnt?rdMin:0,rdMax:cnt?rdMax:0};
+  paint(E,MB,N,Emax);
+  composeTex();
+  show2d();
+  update3d();
+  cards();
+}
+
+const PAL=[[16,18,38],[38,56,140],[24,134,160],[112,196,92],[246,214,58],[255,250,232]];
+function pal(t){t=Math.min(1,Math.max(0,t))*(PAL.length-1);const i=Math.min(PAL.length-2,Math.floor(t)),f=t-i,a=PAL[i],b=PAL[i+1];return[a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,a[2]+(b[2]-a[2])*f]}
+function paint(E,MB,N,Emax){
+  off.width=N;off.height=N;const im=octx.createImageData(N,N),d=im.data;
+  const Eref=Math.max(Emax*0.55,1e-6);
+  for(let k=0;k<N*N;k++){
+    let r,gg,b;const e=E[k];
+    if(S.mode==='light'){const v=Math.pow(1-Math.exp(-e/Eref),1/1.5);r=29+226*v;gg=30+186*v;b=33+124*v}
+    else{if(e<Emax*0.004){r=22;gg=23;b=27}else{[r,gg,b]=pal(e/Emax)}}
+    if(S.edge&&MB[k]>=C.VIS){const i=k%N,j=(k/N)|0;
+      if((i>0&&MB[k-1]<C.VIS)||(i<N-1&&MB[k+1]<C.VIS)||(j>0&&MB[k-N]<C.VIS)||(j<N-1&&MB[k+N]<C.VIS)){if(S.mode==='light'){r=255;gg=140;b=40}else{r=255;gg=255;b=255}}}
+    d[k*4]=r;d[k*4+1]=gg;d[k*4+2]=b;d[k*4+3]=255;
+  }
+  octx.putImageData(im,0,0);
+}
+function niceStep(span){const raw=span/6,p=Math.pow(10,Math.floor(Math.log10(raw)));for(const m of[1,2,2.5,5,10])if(m*p>=raw)return m*p;return 10*p}
+const tex=document.createElement('canvas');tex.width=tex.height=1024;const tctx=tex.getContext('2d');
+function composeTex(){
+  const st=lastStats;if(!st)return;const W=1024,dpr=1.6,ctx=tctx;
+  ctx.imageSmoothingEnabled=true;ctx.drawImage(off,0,0,W,W);
+  const sc=W/(2*st.half),X=u=>(u-st.U0)*sc,Y=v=>(st.V1-v)*sc;
+  ctx.font=`${11*dpr}px "JetBrains Mono",monospace`;
+  const step=niceStep(2*st.half),dec=step<0.1?2:step<1?1:0;
+  ctx.lineWidth=1.5;ctx.strokeStyle='rgba(255,255,255,0.10)';ctx.fillStyle='rgba(255,255,255,0.5)';
+  const u0=Math.ceil(st.U0/step)*step;
+  for(let u=u0;u<st.U0+2*st.half;u+=step){const x=X(u);ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,W);ctx.stroke();ctx.fillText(nf(u,dec),x+4,W-8)}
+  const v0=Math.ceil((st.V1-2*st.half)/step)*step;
+  for(let v=v0;v<st.V1;v+=step){const y=Y(v);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();ctx.fillText(nf(v,dec),6,y-5)}
+  ctx.strokeStyle='rgba(255,255,255,0.8)';ctx.lineWidth=2;const ax=X(0),ay=Y(0),c=11;
+  ctx.beginPath();ctx.moveTo(ax-c,ay);ctx.lineTo(ax+c,ay);ctx.moveTo(ax,ay-c);ctx.lineTo(ax,ay+c);ctx.stroke();
+  if(st.cnt>0){
+    ctx.strokeStyle='rgba(255,255,255,0.85)';ctx.lineWidth=1.6;
+    const xa=X(st.bu0),xb=X(st.bu1),yb=Math.min(Y(st.bv0)+26,W-34);
+    dim(xa,yb,xb,yb);label(nf(st.bu1-st.bu0,2)+' m',(xa+xb)/2,yb-10,'center');
+    const ya=Y(st.bv1),yc=Y(st.bv0),xr=Math.min(X(st.bu1)+26,W-22);
+    dim(xr,ya,xr,yc);label(nf(st.bv1-st.bv0,2)+' m',xr-10,(ya+yc)/2,'right');
+  }
+  function dim(x1,y1,x2,y2){const a=Math.atan2(y2-y1,x2-x1),h=10;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);
+    for(const [x,y,s] of[[x1,y1,1],[x2,y2,-1]]){ctx.moveTo(x,y);ctx.lineTo(x+s*h*Math.cos(a-0.4),y+s*h*Math.sin(a-0.4));ctx.moveTo(x,y);ctx.lineTo(x+s*h*Math.cos(a+0.4),y+s*h*Math.sin(a+0.4))}ctx.stroke()}
+  function label(t,x,y,al){ctx.font=`500 ${20}px "JetBrains Mono",monospace`;ctx.textAlign=al;ctx.textBaseline='middle';const m=ctx.measureText(t).width,p=6,bx=al==='center'?x-m/2:al==='right'?x-m:x;
+    ctx.fillStyle='rgba(15,16,19,0.8)';ctx.fillRect(bx-p,y-14,m+2*p,28);ctx.fillStyle='#fff';ctx.fillText(t,x,y);ctx.textAlign='left';ctx.textBaseline='alphabetic'}
+  $('legend').hidden=S.mode!=='lux';
+  if(S.mode==='lux'){$('legBar').style.background='linear-gradient(90deg,'+PAL.map(c=>`rgb(${c.join(',')})`).join(',')+')';$('legMax').textContent=nf(st.Emax,st.Emax<100?1:0)+' lx'}
+}
+function show2d(){
+  if(S.view!=='2d')return;const box=cv.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2),W=Math.max(200,Math.round(box.width*dpr));
+  if(cv.width!==W){cv.width=W;cv.height=W}ctx.imageSmoothingEnabled=true;ctx.drawImage(tex,0,0,W,W);
+}
+
+/* ---------- 3D ---------- */
+let T3=null;
+function beamOutline(g){
+  const pts=[],n=120,Rm=goboRmax()+2;
+  for(let k=0;k<n;k++){const a=k/n*2*Math.PI,ca=Math.cos(a),sa=Math.sin(a);let r=Rm;
+    for(;r>0.2;r-=0.25){if(mask(r*ca,r*sa)>0.5)break}
+    if(r<=0.2)continue;
+    const gx=r*ca,gy=r*sa,s=g.s,w=g.w,e1=g.e1,e2=g.e2,F=g.F;
+    const d=[w[0]+gx/s*e1[0]+gy/s*e2[0],w[1]+gx/s*e1[1]+gy/s*e2[1],w[2]+gx/s*e1[2]+gy/s*e2[2]];
+    let t=d[2]<-1e-6?-F[2]/d[2]:6*g.L;t=Math.min(t,6*g.L);
+    pts.push([F[0]+t*d[0],F[1]+t*d[1],Math.max(F[2]+t*d[2],0.002)]);}
+  return pts;
+}
+function init3d(){
+  if(typeof THREE==='undefined'){$('three').innerHTML='<div style="color:#bbb;padding:16px;font-size:13px">The 3D library did not load. Wall 2D view is available.</div>';S.view='2d';applyView();return}
+  const host=$('three');let r;try{r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true})}catch(e){host.innerHTML='<div style="color:#bbb;padding:16px;font-size:13px">This browser did not provide a WebGL context. Wall 2D view is available.</div>';S.view='2d';applyView();return}r.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  host.prepend(r.domElement);
+  const scene=new THREE.Scene();scene.background=new THREE.Color(0x141518);
+  const cam=new THREE.PerspectiveCamera(45,4/3,0.01,500);
+  const ctl=new THREE.OrbitControls(cam,r.domElement);ctl.enableDamping=true;ctl.dampingFactor=0.12;
+  const wallBase=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({color:0x1d1e21}));scene.add(wallBase);
+  const ctex=new THREE.CanvasTexture(tex);ctex.anisotropy=8;
+  const patch=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:ctex}));patch.position.z=0.0008;scene.add(patch);
+  const floor=new THREE.GridHelper(1,1,0x3a3d44,0x26282d);scene.add(floor);
+  const beam=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshBasicMaterial({color:0xffc98a,transparent:true,opacity:0.07,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));scene.add(beam);
+  const rays=new THREE.LineSegments(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({color:0xffb366,transparent:true,opacity:0.35}));scene.add(rays);
+  const axis=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineDashedMaterial({color:0xffffff,dashSize:0.1,gapSize:0.08,transparent:true,opacity:0.5}));scene.add(axis);
+  const body=new THREE.Group();
+  const mat=new THREE.MeshBasicMaterial({color:0x5c6068}),mat2=new THREE.MeshBasicMaterial({color:0x8a8f99});
+  const cyl=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.26,24),mat);cyl.rotation.x=Math.PI/2;cyl.position.z=-0.13;body.add(cyl);
+  const lensR=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.02,24),mat2);lensR.rotation.x=Math.PI/2;lensR.position.z=0.005;body.add(lensR);
+  scene.add(body);
+  T3={r,scene,cam,ctl,wallBase,patch,ctex,floor,beam,rays,axis,body,scale:null};
+  $('resetCam').addEventListener('click',()=>{T3.scale=null;update3d()});
+  const ro=new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()});ro.observe(host);
+  (function loop(){requestAnimationFrame(loop);if(S.view!=='3d')return;ctl.update();r.render(scene,cam)})();
+}
+function update3d(){
+  if(!T3||!lastStats)return;const st=lastStats,g=st.g,V=THREE.Vector3;
+  const cu=st.U0+st.half,cvv=st.V1-st.half,size=2*st.half;
+  T3.patch.position.set(cu,cvv,0.0008);T3.patch.scale.set(size,size,1);T3.ctex.needsUpdate=true;
+  const sceneScale=Math.max(g.L,size);
+  const wb=Math.max(size*2.2,g.L*1.6);T3.wallBase.scale.set(wb,wb,1);T3.wallBase.position.set(cu,cvv,0);
+  const floorY=Math.min(cvv-wb/2,g.F[1]-sceneScale*0.35);
+  T3.scene.remove(T3.floor);T3.floor=new THREE.GridHelper(Math.ceil(wb),Math.ceil(wb),0x3a3d44,0x24262b);T3.floor.position.set(cu,floorY,Math.ceil(wb)/2);T3.scene.add(T3.floor);
+  T3.wallBase.scale.y=(cvv+wb/2-floorY);T3.wallBase.position.y=(cvv+wb/2+floorY)/2;
+  const F=new V(...g.F),pts=beamOutline(g);
+  const pos=[],lin=[];
+  for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length];pos.push(...g.F,...a,...b);if(i%10===0)lin.push(...g.F,...a)}
+  T3.beam.geometry.dispose();T3.beam.geometry=new THREE.BufferGeometry();T3.beam.geometry.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  T3.rays.geometry.dispose();T3.rays.geometry=new THREE.BufferGeometry();T3.rays.geometry.setAttribute('position',new THREE.Float32BufferAttribute(lin,3));
+  T3.axis.geometry.dispose();T3.axis.geometry=new THREE.BufferGeometry().setFromPoints([F,new V(0,0,0.001)]);T3.axis.computeLineDistances();
+  T3.axis.material.dashSize=g.L/40;T3.axis.material.gapSize=g.L/60;
+  const k=Math.max(1,g.L/6);T3.body.scale.set(k,k,k);T3.body.position.copy(F);T3.body.lookAt(0,0,0);
+  const target=new V(cu,cvv,0);
+  if(T3.scale===null){
+    const fd=F.clone().sub(target).normalize();let side=new V().crossVectors(fd,new V(0,1,0));if(side.length()<1e-3)side.set(1,0,0);side.normalize().multiplyScalar(0.45);
+    const dir=F.clone().sub(target).normalize().add(side).add(new V(0,0.12,0.35)).normalize();
+    T3.cam.position.copy(target).add(dir.multiplyScalar(sceneScale*1.55));
+  }else{
+    const off=T3.cam.position.clone().sub(T3.ctl.target).multiplyScalar(sceneScale/T3.scale);
+    T3.cam.position.copy(target).add(off);
+  }
+  T3.cam.near=sceneScale/500;T3.cam.far=sceneScale*40;T3.cam.updateProjectionMatrix();
+  T3.ctl.target.copy(target);T3.scale=sceneScale;
+}
+function applyView(){
+  const is3=S.view==='3d';$('three').hidden=!is3;$('wall').hidden=is3;$('cvbox').classList.toggle('v3d',is3);
+  $('viewSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===S.view));
+  if(!is3)requestAnimationFrame(show2d);
+}
+function cards(){
+  const st=lastStats,g=st.g,x=g.x;
+  const ang=2*Math.atan(0.5*(C.R0+C.G*x))*57.29578;
+  const items=[
+    ['Visible spot',st.cnt?`${nf(st.bu1-st.bu0,2)} × ${nf(st.bv1-st.bv0,2)} <small>m</small>`:'—'],
+    ['Spot area',st.cnt?`${nf(st.area,2)} <small>m²</small>`:'—'],
+    ['E at aim point',`${nf(st.Eaim,st.Eaim<100?1:0)} <small>lx</small>`],
+    ['E average / max',st.cnt?`${nf(st.Eavg,st.Eavg<100?1:0)} / ${nf(st.Emax,st.Emax<100?1:0)} <small>lx</small>`:'—'],
+    ['Uniformity',st.Ucore?`${nf(st.Ucore,2)} <small>Emin/Eavg, core</small>`:'—'],
+    ['Flux on wall',`${nf(st.flux,0)} <small>lm</small>`],
+    ['Throw to aim point',`${nf(g.L,2)} <small>m</small>`],
+    ['Incidence',`${nf(g.theta*57.2958,1)}°`],
+    ['Beam angle',`${nf(ang,1)}° <small>visible</small>`],
+    ['Sharp at',g.df>0&&isFinite(g.df)?`${nf(g.df,2)} <small>m</small>`:g.df===Infinity?'∞':'<small>nowhere (past ∞)</small>'],
+    ['Edge blur',st.cnt?`${nf(st.rdMin*2,0)}–${nf(st.rdMax*2,0)} <small>mm</small>`:'—'],
+  ];
+  lastCards=items;
+  $('cards').innerHTML=items.map(([k,v])=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  schematic(g,ang);
+  const df=g.df,sharp=df>0&&isFinite(df)?nf(df,2)+' m':df===Infinity?'∞':'nowhere';
+  $('lensNote').textContent=`${df<0?'Not sharp at any distance':'Sharp at '+sharp} · throw to aim point ${nf(g.L,2)} m. Zero = lens fully toward the gobo; ∞ at 11.0 mm, end stop 21.3 mm (sharp at 0.75 m).`;
+  const w=$('focWarn');
+  if(g.L<C.NEAR){w.hidden=false;w.textContent='The aim point is closer than the 0.75 m near limit, so it cannot be brought into focus.'}
+  else if(df<0){w.hidden=false;w.textContent='The lens is past the ∞ position: the image is not sharp at any distance.'}
+  else w.hidden=true;
+}
+function schematic(g,ang){
+  $('schemTitle').textContent='Set-up · plan and side view';
+  const a=ang/2*Math.PI/180;
+  const part=(x0,off,H,title,lp,deg)=>{
+    const t=Math.atan2(off,H),tf=Math.min(Math.abs(t)+a,1.3),tn=Math.abs(t)-a;
+    const far=H*Math.tan(tf),near=H*Math.tan(tn),lo=Math.min(0,near),sc=Math.min(120/H,150/(far-lo));
+    const sg=off<0?-1:1,wx=x0+150,fy0=40-lo*sc,fx=wx-H*sc;
+    const Y=d=>off<0?(200-(fy0-40)-d*sc):fy0+d*sc,fy=Y(0),ay=Y(Math.abs(off)),y1=Y(far),y2=Y(near);
+    return `<text x="${x0+4}" y="16" font-family="Golos Text,sans-serif" font-size="11" fill="var(--muted)">${title}</text>
+    <line x1="${wx}" y1="26" x2="${wx}" y2="212" stroke="var(--fg)" stroke-width="2"/>
+    <polygon points="${fx},${fy} ${wx},${Math.max(26,Math.min(212,y2))} ${wx},${Math.max(26,Math.min(212,y1))}" fill="var(--accent)" fill-opacity="0.2"/>
+    <line x1="${fx}" y1="${fy}" x2="${wx}" y2="${ay}" stroke="var(--accent)" stroke-width="1.2"/>
+    <line x1="${fx}" y1="${fy}" x2="${wx}" y2="${fy}" stroke="var(--muted)" stroke-width="0.8" stroke-dasharray="3 3"/>
+    <circle cx="${wx}" cy="${ay}" r="3" fill="var(--accent)"/><circle cx="${fx}" cy="${fy}" r="4.5" fill="var(--fg)"/>
+    <text x="${fx}" y="${fy+(off<0?-10:18)}" font-family="JetBrains Mono,monospace" font-size="11" fill="var(--muted)">${deg}°</text>
+    <text x="${wx-4}" y="${ay+(off<0?16:-8)}" font-family="JetBrains Mono,monospace" font-size="10" fill="var(--muted)" text-anchor="end">${lp} ${nf(Math.abs(off),2)} m</text>`;
+  };
+  const F=g.F;
+  $('schem').innerHTML=part(0,-F[0],F[2],'Plan: horizontal angle','offset',S.pan)+part(170,F[1],F[2],'Side: vertical angle','height',S.tlt)
+   +`<text x="170" y="228" font-family="JetBrains Mono,monospace" font-size="10" fill="var(--muted)" text-anchor="middle">H to wall = ${nf(F[2],2)} m · L = ${nf(g.L,2)} m</text>`;
+}
+let raf=0,idle=0;
+function schedule(){cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>render(200));clearTimeout(idle);idle=setTimeout(()=>render(420),160)}
+function syncVals(){
+  $('rotGv').textContent=S.rotG+'°';$('rotSv').textContent=S.rotS+'°';
+  for(const k of['shT','shB','shL','shR'])$(k+'v').textContent=S[k]>=20?'out':nf(S[k],1);
+  for(const k of['aT','aB','aL','aR'])$(k+'v').textContent=S[k]+'°';
+  $('fsGobo').disabled=S.bf!=='gobo';$('fsShut').disabled=S.bf!=='shutter';
+  $('gateNote').textContent=S.bf==='gobo'?'Gobo in the gate; shutters are not used with a gobo. Shown as it lands on the wall (the physical gobo is inverted).':'Open Ø40 mm gate with shutters, viewed from the wall side.';
+  if(document.activeElement!==$('distNum'))$('distNum').value=S.dist.toFixed(2);for(const k of['pan','tlt'])if(document.activeElement!==$(k+'Num'))$(k+'Num').value=S[k];
+  if(document.activeElement!==$('lensNum'))$('lensNum').value=S.lens.toFixed(2);$('lens').value=S.lens;
+}
+function bindRange(id,key,parse=parseFloat){$(id).addEventListener('input',e=>{S[key]=parse(e.target.value);syncVals();schedule()})}
+bindRange('rotG','rotG');bindRange('rotS','rotS');['shT','shB','shL','shR','aT','aB','aL','aR'].forEach(k=>bindRange(k,k));
+const DMIN=0.3,DMAX=40;
+const d2t=d=>Math.round(Math.log(d/DMIN)/Math.log(DMAX/DMIN)*1000),t2d=t=>DMIN*Math.pow(DMAX/DMIN,t/1000);
+$('dist').value=d2t(S.dist);
+$('dist').addEventListener('input',e=>{let d=t2d(+e.target.value);d=d<5?Math.round(d*20)/20:d<15?Math.round(d*10)/10:Math.round(d*2)/2;S.dist=d;syncVals();schedule()});
+$('distNum').addEventListener('change',e=>{let d=parseFloat(String(e.target.value).replace(',','.'));if(!isFinite(d))d=S.dist;d=Math.min(DMAX,Math.max(DMIN,d));S.dist=d;$('dist').value=d2t(d);syncVals();schedule()});bindRange('pan','pan');bindRange('tlt','tlt');for(const k of['pan','tlt'])$(k+'Num').addEventListener('change',e=>{let v=parseFloat(String(e.target.value).replace(',','.'));if(!isFinite(v))v=S[k];v=Math.max(-180,Math.min(180,Math.round(v)));S[k]=v;$(k).value=v;syncVals();schedule()});
+function focusAim(){const g=geom();S.lens=Math.round(Math.min(C.TRAV,Math.max(C.XI,lensPos(Math.max(g.L,C.NEAR))))*20)/20}
+$('lens').addEventListener('input',e=>{S.lens=+e.target.value;syncVals();schedule()});
+$('lensNum').addEventListener('change',e=>{let v=parseFloat(String(e.target.value).replace(',','.'));if(!isFinite(v))v=S.lens;S.lens=Math.min(C.TRAV,Math.max(0,v));syncVals();schedule()});
+$('autoFocus').addEventListener('click',()=>{focusAim();syncVals();schedule()});
+function bindSeg(id,key,cb){const el=$(id);el.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S[key]=b.dataset.v;el.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));cb&&cb();syncVals();schedule()})}
+bindSeg('goboSeg','gobo',()=>{$('imgBox').hidden=S.gobo!=='img';drawGobo()});
+bindSeg('modeSeg','mode');bindSeg('bfSeg','bf',drawGobo);bindSeg('viewSeg','view',applyView);
+
+$('showEdge').addEventListener('change',e=>{S.edge=e.target.checked;schedule()});
+['rotG','rotS','shT','shB','shL','shR','aT','aB','aL','aR'].forEach(id=>$(id).addEventListener('input',drawGobo));
+
+function loadImg(file){
+  const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{
+    const n=256,c=document.createElement('canvas');c.width=c.height=n;const x=c.getContext('2d');x.fillStyle='#000';x.fillRect(0,0,n,n);
+    const k=Math.min(n/im.width,n/im.height),w=im.width*k,h=im.height*k;x.drawImage(im,(n-w)/2,(n-h)/2,w,h);
+    const p=x.getImageData(0,0,n,n).data,d=new Float32Array(n*n),inv=$('imgInv').checked;
+    for(let i=0;i<n*n;i++){let l=(0.2126*p[i*4]+0.7152*p[i*4+1]+0.0722*p[i*4+2])/255*(p[i*4+3]/255);d[i]=inv?1-l:l}
+    IMG={n,d,src:im};drawGobo();schedule()};im.src=fr.result};fr.readAsDataURL(file)}
+$('imgFile').addEventListener('change',e=>{const f=e.target.files[0];if(f)loadImg(f)});
+$('imgInv').addEventListener('change',()=>{if(IMG&&IMG.src){const d=IMG.d;for(let i=0;i<d.length;i++)d[i]=1-d[i];drawGobo();schedule()}});
+
+function drawGobo(){
+  setRot();
+  const c=$('goboCv'),x=c.getContext('2d'),n=c.width,im=x.createImageData(n,n),d=im.data,R=22;
+  for(let j=0;j<n;j++)for(let i=0;i<n;i++){const gx=(i+.5)/n*2*R-R,gy=R-(j+.5)/n*2*R,k=(j*n+i)*4;
+    let blade=false,t;
+    if(S.bf==='shutter'){const ins=gx*gx+gy*gy<=400;blade=ins&&bladeAt(gx,gy);t=ins?1:0}
+    else t=goboT(gx*cG+gy*sG,-gx*sG+gy*cG);
+    if(blade){d[k]=70;d[k+1]=74;d[k+2]=82}else{d[k]=20+230*t;d[k+1]=20+200*t;d[k+2]=22+150*t}d[k+3]=255}
+  x.putImageData(im,0,0);
+}
+let lastCards=[];
+function goboLabel(){return{r30:'Circle Ø30',r40:'Circle Ø40',grid:'Test grid',img:'Custom image'}[S.gobo]}
+function buildShot(){
+  const Wsc=1280,H=880,P=440,c=document.createElement('canvas');c.width=Wsc+P;c.height=H;const x=c.getContext('2d');
+  x.fillStyle='#141518';x.fillRect(0,0,c.width,c.height);
+  let src;if(S.view==='3d'&&T3){T3.ctl.update();T3.r.render(T3.scene,T3.cam);src=T3.r.domElement}else src=tex;
+  const sw=src.width,sh=src.height,k=Math.min(Wsc/sw,H/sh),dw=sw*k,dh=sh*k;x.drawImage(src,(Wsc-dw)/2,(H-dh)/2,dw,dh);
+  x.fillStyle='#1b1d21';x.fillRect(Wsc,0,P,H);x.fillStyle='#E9A64E';x.fillRect(Wsc,0,3,H);
+  let y=40;const L=Wsc+24,mono='"JetBrains Mono",monospace',ui='"Golos Text",sans-serif';
+  x.fillStyle='#fff';x.font=`600 20px ${ui}`;x.fillText('Framer Projection Lab',L,y);y+=22;
+  x.fillStyle='#9aa1ab';x.font=`13px ${ui}`;x.fillText('iGuzzini Palco Framer S892 · '+new Date().toISOString().slice(0,10),L,y);
+  const gy0=y+14;x.drawImage($('goboCv'),Wsc+P-24-96,gy0,96,96);y+=22;
+  const g=lastStats.g;
+  const sec=t=>{y+=10;x.fillStyle='#E9A64E';x.font=`600 11px ${ui}`;x.fillText(t.toUpperCase(),L,y);y+=19};
+  const kv=(k,v)=>{x.fillStyle='#9aa1ab';x.font=`13px ${ui}`;x.fillText(k,L,y);x.fillStyle='#fff';x.font=`13px ${mono}`;x.fillText(v,L+150,y);y+=19};
+  sec('Beam shaping');
+  if(S.bf==='gobo'){kv('Gobo',goboLabel());kv('Rotation',S.rotG+'°')}
+  else{kv('Mode','Shutters');for(const [n,p,a] of[['Top','shT','aT'],['Bottom','shB','aB'],['Left','shL','aL'],['Right','shR','aR']])kv(n,(S[p]>=20?'out':nf(S[p],1)+' mm')+' · '+S[a]+'°');kv('Module rotation',S.rotS+'°')}
+  y=Math.max(y,gy0+110);
+  sec('Geometry');kv('Distance to wall',nf(S.dist,2)+' m');kv('Horizontal angle',S.pan+'°');kv('Vertical angle',S.tlt+'°');kv('Throw to aim point',nf(g.L,2)+' m');
+  sec('Focus');kv('Lens position',nf(S.lens,1)+' mm');kv('Sharp at',g.df>0&&isFinite(g.df)?nf(g.df,2)+' m':g.df===Infinity?'∞':'nowhere');
+  sec('Results');for(const [kk,v] of lastCards.slice(0,9))kv(kk,String(v).replace(/<[^>]+>/g,'').replace(/\s+/g,' '));
+  x.fillStyle='#6f7680';x.font=`11px ${ui}`;x.fillText(S.mode==='lux'?'View: illuminance (false colour)':'View: light',L,H-18);
+  return c;
+}
+function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,2600)}
+function showModal(c){$('modalImg').src=c.toDataURL('image/png');$('modal').hidden=false}
+$('modalClose').addEventListener('click',()=>$('modal').hidden=true);
+$('modal').addEventListener('click',e=>{if(e.target.id==='modal')$('modal').hidden=true});
+$('shotBtn').addEventListener('click',()=>{
+  if(!lastStats)return;const c=buildShot();
+  try{
+    if(!navigator.clipboard||typeof ClipboardItem==='undefined')throw 0;
+    const blob=new Promise(res=>c.toBlob(res,'image/png'));
+    navigator.clipboard.write([new ClipboardItem({'image/png':blob})]).then(()=>toast('Screenshot copied to the clipboard')).catch(()=>showModal(c));
+  }catch(e){showModal(c)}
+});
+new ResizeObserver(()=>show2d()).observe(cv);
+
+focusAim();syncVals();drawGobo();init3d();applyView();render(420);
+</script>
+
+</body></html>
