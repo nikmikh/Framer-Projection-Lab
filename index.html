@@ -232,7 +232,9 @@ const S={bf:'gobo',view:'3d',gobo:'r30',rotG:0,shT:12,shB:12,shL:16,shR:16,aT:0,
 let IMG=null;
 
 function lensPos(df){return isFinite(df)?C.XI+C.K/(df-C.C0):C.XI}
-function dfOf(x){const u=x-C.XI;return Math.abs(u)<1e-6?Infinity:C.C0+C.K/u}
+function vOf(x){return (x-C.XI)/C.K}
+function dfOf(x){const v=vOf(x);return Math.abs(v)<1e-9?Infinity:v>0?C.C0+1/v:-1}
+function vWall(dm){return 1/Math.max(dm-C.C0,0.05)}
 function sOfX(x){return C.FV*(C.R0+C.G*C.XI)/(C.R0+C.G*x)}
 function field(rg){const g=Math.atan(rg/C.F0)*57.29578;if(g<=9){const i=Math.floor(g),t=g-i;return I40[i]*(1-t)+I40[Math.min(i+1,9)]*t}return Math.max(I40[9]-40*(g-9),900)}
 
@@ -277,8 +279,8 @@ function geom(){
   let e1=[-w[2],0,w[0]];
   let n1=Math.hypot(...e1);if(n1<1e-6){e1=[1,0,0];n1=1}e1=e1.map(v=>v/n1);
   const e2=[e1[1]*w[2]-e1[2]*w[1],e1[2]*w[0]-e1[0]*w[2],e1[0]*w[1]-e1[1]*w[0]];
-  const df=dfOf(S.lens);
-  return{F,w,e1,e2,L,H,ca,df,x:S.lens,s:sOfX(S.lens),theta:t};
+  const df=dfOf(S.lens),Vf=vOf(S.lens);
+  return{F,w,e1,e2,L,H,ca,df,Vf,x:S.lens,s:sOfX(S.lens),theta:t};
 }
 
 const cv=$('wall'),ctx=cv.getContext('2d');
@@ -303,7 +305,7 @@ function render(N){
   const cu=(umin+umax)/2,cvv=(vmin+vmax)/2,half=Math.max(umax-umin,vmax-vmin)/2*1.3;
   const U0=cu-half,V1=cvv+half,pix=2*half/N;
   const E=new Float32Array(N*N),MB=new Float32Array(N*N),RD=new Float32Array(N*N);
-  const Ar=S.ap/2,R0=s*Math.tan(S.soft*Math.PI/180),idf=isFinite(df)?1/(df*1000):0;/* df<0: lens past ∞, virtual focus */
+  const Ar=S.ap/2,R0=s*Math.tan(S.soft*Math.PI/180),Vf=g.Vf;/* focus vergence in 1/m from the calibrated scale; negative = lens past ∞ */
   const k2=C.KLM*(s/C.FV)**2,lim=goboRmax()*1.0;
   for(let j=0;j<N;j++){
     const v=V1-(j+.5)*pix,dy=v-F[1];
@@ -312,7 +314,7 @@ function render(N){
       const dw=dx*w[0]+dy*w[1]+dz*w[2];if(dw<=1e-9)continue;
       const gx=s*(dx*e1[0]+dy*e1[1]+dz*e1[2])/dw,gy=s*(dx*e2[0]+dy*e2[1]+dz*e2[2])/dw;
       const dist=Math.sqrt(dx*dx+dy*dy+dz*dz);
-      const rd=s*Ar*Math.abs(1/(dist*1000)-idf),Rb=Math.sqrt(R0*R0+rd*rd);
+      const rd=s*Ar*Math.abs(vWall(dist)-Vf)/1000,Rb=Math.sqrt(R0*R0+rd*rd);
       const idx=j*N+i;RD[idx]=rd*dist*1000/s;
       const rr=Math.sqrt(gx*gx+gy*gy);if(rr>lim+Rb)continue;
       const h=Math.sin(i*12.9898+j*78.233)*43758.5453,ra=(h-Math.floor(h))*6.2832,cr=Math.cos(ra)*Rb,sr=Math.sin(ra)*Rb;
@@ -329,7 +331,7 @@ function render(N){
       const edge=(i>0&&MB[k-1]<C.VIS)||(i<N-1&&MB[k+1]<C.VIS)||(j>0&&MB[k-N]<C.VIS)||(j<N-1&&MB[k+N]<C.VIS);
       if(edge){const r=RD[k];if(r<rdMin)rdMin=r;if(r>rdMax)rdMax=r}}}
   flux*=pix*pix;
-  const mc=(()=>{let m=0;const R=Math.sqrt(R0*R0+(s*Ar*Math.abs(1/(g.L*1000)-idf))**2);for(const o of OFF)m+=mask(R*o[0],R*o[1]);return m*ROFF})();
+  const mc=(()=>{let m=0;const R=Math.sqrt(R0*R0+(s*Ar*Math.abs(vWall(g.L)-Vf)/1000)**2);for(const o of OFF)m+=mask(R*o[0],R*o[1]);return m*ROFF})();
   const Eaim=field(0)*k2*mc*Math.cos(g.theta)/(g.L*g.L);
   lastStats={g,N,U0,V1,pix,half,Emax,Eaim,cnt,Eavg:cnt?Es/cnt:0,Emin:cnt?Emin:0,Ucore:cc?Ecmin/(Ec/cc):0,area:cnt*pix*pix,flux,bu0,bu1,bv0,bv1,rdMin:cnt?rdMin:0,rdMax:cnt?rdMax:0};
   paint(E,MB,N,Emax);
