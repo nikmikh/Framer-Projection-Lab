@@ -85,7 +85,7 @@ fieldset:disabled{opacity:.38}
 <header>
   <h1>Framer Projection Lab</h1>
   <button class="shotbtn" id="aboutBtn" type="button" style="margin-left:auto;order:3">About</button>
-  <span class="sub">Prototype 0.6 · iGuzzini Palco Framer S892 · calibrated from LDT and on-site measurements, 26 Oct 2026</span>
+  <span class="sub">Prototype 0.7 · iGuzzini Palco Framer S892 · calibrated from LDT and on-site measurements, 26 Oct 2026</span>
 </header>
 
 <div class="app">
@@ -134,11 +134,15 @@ fieldset:disabled{opacity:.38}
 
     <div class="sec">
       <div class="lbl">Geometry</div>
-      <div class="row"><label for="dist">Distance to wall</label><input type="range" id="dist" min="0" max="1000" step="1" value="350"><input type="number" class="numin" id="distNum" min="0.3" max="40" step="0.05" value="3" aria-label="Distance from fixture to wall, m"></div>
-      <div class="row"><label for="pan">Horizontal angle</label><input type="range" id="pan" min="-180" max="180" step="1" value="0"><input type="number" class="numin" id="panNum" min="-180" max="180" step="1" value="0" aria-label="Horizontal angle, degrees"></div>
-      <div class="row"><label for="tlt">Vertical angle</label><input type="range" id="tlt" min="-180" max="180" step="1" value="30"><input type="number" class="numin" id="tltNum" min="-180" max="180" step="1" value="30" aria-label="Vertical angle, degrees"></div>
+      <div class="seg" id="surfSeg" aria-label="Projection surface">
+        <button type="button" data-v="wall" aria-pressed="true">Wall</button>
+        <button type="button" data-v="ground" aria-pressed="false">Ground (pole)</button>
+      </div>
+      <div class="row"><label for="dist" id="distLbl">Distance to wall</label><input type="range" id="dist" min="0" max="1000" step="1" value="350"><input type="number" class="numin" id="distNum" min="0.3" max="40" step="0.05" value="3" aria-label="Distance from fixture to wall, m"></div>
+      <div class="row"><label for="pan" id="panLbl">Horizontal angle</label><input type="range" id="pan" min="-180" max="180" step="1" value="0"><input type="number" class="numin" id="panNum" min="-180" max="180" step="1" value="0" aria-label="Horizontal angle, degrees"></div>
+      <div class="row"><label for="tlt" id="tltLbl">Vertical angle</label><input type="range" id="tlt" min="-180" max="180" step="1" value="30"><input type="number" class="numin" id="tltNum" min="-180" max="180" step="1" value="30" aria-label="Vertical angle, degrees"></div>
       <div id="geoWarn" class="warn" hidden></div>
-      <div class="note">Angles of the fixture axis to the wall normal. Horizontal +: fixture to the right of the aim point; vertical +: fixture above it. Distance is the fixed perpendicular distance from the fixture to the wall; the throw along the beam follows from the angles.</div>
+      <div class="note" id="geoNote"></div>
     </div>
 
     <div class="sec">
@@ -178,7 +182,7 @@ fieldset:disabled{opacity:.38}
       <div class="viewbar">
         <div class="seg" id="viewSeg" style="flex:0 1 auto">
           <button data-v="3d" aria-pressed="true">3D</button>
-          <button data-v="2d" aria-pressed="false">Wall 2D</button>
+          <button data-v="2d" aria-pressed="false" id="v2dBtn">Wall 2D</button>
         </div>
         <div class="seg" id="modeSeg" style="flex:0 1 auto">
           <button data-v="light" aria-pressed="true">Light</button>
@@ -198,7 +202,7 @@ fieldset:disabled{opacity:.38}
       </section>
       <section class="view">
         <div class="lbl">How to read it</div>
-        <div class="note" style="font-size:13px;line-height:1.55">The visible edge is the ≈37% level of the field, where the eye places the border of the spot; sizes are measured to it. Illuminance comes from the LDT with distance and angle of incidence. Blur grows where the wall leaves the plane of focus. Next: a pre-distorted gobo for ordering, loading any LDT/IES, and stray light outside the edge.</div>
+        <div class="note" style="font-size:13px;line-height:1.55">The visible edge is the ≈37% level of the field, where the eye places the border of the spot; sizes are measured to it. Illuminance comes from the LDT with distance and angle of incidence. Blur grows where the wall or ground leaves the plane of focus. Next: a pre-distorted gobo for ordering, loading any LDT/IES, and stray light outside the edge.</div>
       </section>
     </div>
   </main>
@@ -222,7 +226,7 @@ fieldset:disabled{opacity:.38}
       <li>Shutters are assumed to lie in the gobo plane; open gate Ø40 mm.</li>
     </ul>
   </details>
-  <p class="note">Prototype 0.6 · October 2026</p>
+  <p class="note">Prototype 0.7 · October 2026</p>
 </div></div>
 <div id="modal" class="modal" hidden><div class="box"><div class="bar"><span>Clipboard access is blocked here. Right-click the image (long-press on a phone) and choose Copy image.</span><button id="modalClose" type="button">Close</button></div><img id="modalImg" alt="Screenshot of the scene with set-up parameters"></div></div>
 
@@ -233,8 +237,10 @@ const C={FV:87.3,F0:90.6,XI:11.023,K:2.5896,C0:0.498,R0:0.37737,G:-0.0027233,TRA
 const I40=[1830.4,1822.0,1809.5,1788.4,1758.5,1722.8,1693.2,1687.0,1692.4,1670.9];
 const $=id=>document.getElementById(id);
 const nf=(v,d)=>v.toFixed(d);
-const S={bf:'gobo',view:'3d',gobo:'r30',rotG:0,shT:12,shB:12,shL:16,shR:16,aT:0,aB:0,aL:0,aR:0,rotS:0,dim:100,dist:3,pan:0,tlt:30,lens:12,ap:19,soft:0.15,mode:'light',edge:true};
+const S={bf:'gobo',view:'3d',gobo:'r30',rotG:0,shT:12,shB:12,shL:16,shR:16,aT:0,aB:0,aL:0,aR:0,rotS:0,dim:100,surf:'wall',dist:3,pan:0,tlt:30,lens:12,ap:19,soft:0.15,mode:'light',edge:true};
 let IMG=null;
+const GEO={wall:{dist:3,pan:0,tlt:30},ground:{dist:6,pan:0,tlt:35}};
+const SURF=()=>S.surf==='ground'?'ground':'wall';
 
 function lensPos(df){return isFinite(df)?C.XI+C.K/(df-C.C0):C.XI}
 function vOf(x){return (x-C.XI)/C.K}
@@ -278,7 +284,7 @@ function goboRmax(){return S.bf==='shutter'?20:S.gobo==='r30'?15:S.gobo==='img'?
 function geom(){
   const H=S.dist,a=S.pan*Math.PI/180,b=S.tlt*Math.PI/180,ca=Math.cos(a)*Math.cos(b);
   const L=ca>0.035?H/ca:H/0.035;
-  const F=[L*Math.sin(a)*Math.cos(b),L*Math.sin(b),L*Math.cos(a)*Math.cos(b)];
+  const F=[L*Math.sin(a)*Math.cos(b),(S.surf==='ground'?-1:1)*L*Math.sin(b),L*Math.cos(a)*Math.cos(b)];
   const t=Math.acos(Math.max(-1,Math.min(1,ca)));
   const w=[-F[0]/L,-F[1]/L,-F[2]/L];
   let e1=[-w[2],0,w[0]];
@@ -294,7 +300,7 @@ let lastStats=null;
 
 function render(N){
   const gg=geom(),gw=$('geoWarn');
-  if(gg.ca<=0.035){gw.hidden=false;gw.textContent=gg.ca<=0?'The fixture is behind or in the wall plane, so the beam does not reach the wall. Reduce the angles.':'The beam grazes the wall (incidence above 88°), so the result is unreliable.';return}
+  if(gg.ca<=0.035){gw.hidden=false;gw.textContent=gg.ca<=0?`The fixture aims away from the ${SURF()}, so the beam does not reach it. Reduce the angles.`:`The beam grazes the ${SURF()} (incidence above 88°), so the result is unreliable.`;return}
   gw.hidden=true;
   setRot();
   const g=geom(),{F,w,e1,e2,s,df}=g;
@@ -415,19 +421,21 @@ function init3d(){
   const scene=new THREE.Scene();scene.background=new THREE.Color(0x141518);
   const cam=new THREE.PerspectiveCamera(45,4/3,0.01,500);
   const ctl=new THREE.OrbitControls(cam,r.domElement);ctl.enableDamping=true;ctl.dampingFactor=0.12;
-  const wallBase=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({color:0x1d1e21}));scene.add(wallBase);
+  const world=new THREE.Group();scene.add(world);
+  const wallBase=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({color:0x1d1e21}));world.add(wallBase);
   const ctex=new THREE.CanvasTexture(tex);ctex.anisotropy=8;
-  const patch=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:ctex}));patch.position.z=0.0008;scene.add(patch);
+  const patch=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:ctex}));patch.position.z=0.0008;world.add(patch);
   const floor=new THREE.GridHelper(1,1,0x3a3d44,0x26282d);scene.add(floor);
-  const beam=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshBasicMaterial({color:0xffc98a,transparent:true,opacity:0.07,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));scene.add(beam);
-  const rays=new THREE.LineSegments(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({color:0xffb366,transparent:true,opacity:0.35}));scene.add(rays);
-  const axis=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineDashedMaterial({color:0xffffff,dashSize:0.1,gapSize:0.08,transparent:true,opacity:0.5}));scene.add(axis);
+  const beam=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshBasicMaterial({color:0xffc98a,transparent:true,opacity:0.07,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));world.add(beam);
+  const rays=new THREE.LineSegments(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({color:0xffb366,transparent:true,opacity:0.35}));world.add(rays);
+  const axis=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineDashedMaterial({color:0xffffff,dashSize:0.1,gapSize:0.08,transparent:true,opacity:0.5}));world.add(axis);
   const body=new THREE.Group();
   const mat=new THREE.MeshBasicMaterial({color:0x5c6068}),mat2=new THREE.MeshBasicMaterial({color:0x8a8f99});
   const cyl=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.26,24),mat);cyl.rotation.x=Math.PI/2;cyl.position.z=-0.13;body.add(cyl);
   const lensR=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.02,24),mat2);lensR.rotation.x=Math.PI/2;lensR.position.z=0.005;body.add(lensR);
-  scene.add(body);
-  T3={r,scene,cam,ctl,wallBase,patch,ctex,floor,beam,rays,axis,body,scale:null};
+  world.add(body);
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.06,1,16),new THREE.MeshBasicMaterial({color:0x4a4e56}));pole.rotation.x=Math.PI/2;world.add(pole);
+  T3={r,scene,cam,ctl,world,wallBase,patch,ctex,floor,beam,rays,axis,body,pole,scale:null,surf:null};
   $('resetCam').addEventListener('click',()=>{T3.scale=null;update3d()});
   const ro=new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()});ro.observe(host);
   (function loop(){requestAnimationFrame(loop);if(S.view!=='3d')return;ctl.update();r.render(scene,cam)})();
@@ -437,10 +445,17 @@ function update3d(){
   const cu=st.U0+st.half,cvv=st.V1-st.half,size=2*st.half;
   T3.patch.position.set(cu,cvv,0.0008);T3.patch.scale.set(size,size,1);T3.ctex.needsUpdate=true;
   const sceneScale=Math.max(g.L,size);
+  const gnd=S.surf==='ground';
+  if(T3.surf!==S.surf){T3.surf=S.surf;T3.scale=null}
+  T3.world.rotation.x=gnd?-Math.PI/2:0;T3.world.updateMatrixWorld(true);
   const wb=Math.max(size*2.2,g.L*1.6);T3.wallBase.scale.set(wb,wb,1);T3.wallBase.position.set(cu,cvv,0);
-  const floorY=Math.min(cvv-wb/2,g.F[1]-sceneScale*0.35);
-  T3.scene.remove(T3.floor);T3.floor=new THREE.GridHelper(Math.ceil(wb),Math.ceil(wb),0x3a3d44,0x24262b);T3.floor.position.set(cu,floorY,Math.ceil(wb)/2);T3.scene.add(T3.floor);
-  T3.wallBase.scale.y=(cvv+wb/2-floorY);T3.wallBase.position.y=(cvv+wb/2+floorY)/2;
+  T3.scene.remove(T3.floor);
+  if(gnd){const ext=Math.max(wb,Math.hypot(g.F[0]-cu,g.F[1]-cvv)*2+wb*0.6);T3.wallBase.scale.set(ext,ext,1);T3.wallBase.position.set((cu+g.F[0])/2,(cvv+g.F[1])/2,0);
+    T3.floor=new THREE.GridHelper(Math.ceil(ext),Math.ceil(ext),0x3a3d44,0x2a2c31);T3.floor.position.set((cu+g.F[0])/2,0.0004,-(cvv+g.F[1])/2);T3.scene.add(T3.floor);
+    T3.pole.visible=true;T3.pole.position.set(g.F[0],g.F[1],g.F[2]/2);T3.pole.scale.set(Math.max(1,g.L/8),g.F[2],Math.max(1,g.L/8));}
+  else{const floorY=Math.min(cvv-wb/2,g.F[1]-sceneScale*0.35);
+    T3.floor=new THREE.GridHelper(Math.ceil(wb),Math.ceil(wb),0x3a3d44,0x24262b);T3.floor.position.set(cu,floorY,Math.ceil(wb)/2);T3.scene.add(T3.floor);
+    T3.wallBase.scale.y=(cvv+wb/2-floorY);T3.wallBase.position.y=(cvv+wb/2+floorY)/2;T3.pole.visible=false;}
   const F=new V(...g.F),pts=beamOutline(g);
   const pos=[],lin=[];
   for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length];pos.push(...g.F,...a,...b);if(i%10===0)lin.push(...g.F,...a)}
@@ -449,11 +464,11 @@ function update3d(){
   T3.axis.geometry.dispose();T3.axis.geometry=new THREE.BufferGeometry().setFromPoints([F,new V(0,0,0.001)]);T3.axis.computeLineDistances();
   T3.axis.material.dashSize=g.L/40;T3.axis.material.gapSize=g.L/60;
   const k=Math.max(1,g.L/6);T3.body.scale.set(k,k,k);T3.body.position.copy(F);T3.body.lookAt(0,0,0);
-  const target=new V(cu,cvv,0);
+  const target=T3.world.localToWorld(new V(cu,cvv,0));const Fw=T3.world.localToWorld(F.clone());
   if(T3.scale===null){
-    const fd=F.clone().sub(target).normalize();let side=new V().crossVectors(fd,new V(0,1,0));if(side.length()<1e-3)side.set(1,0,0);side.normalize().multiplyScalar(0.45);
-    const dir=F.clone().sub(target).normalize().add(side).add(new V(0,0.12,0.35)).normalize();
-    T3.cam.position.copy(target).add(dir.multiplyScalar(sceneScale*1.55));
+    const fd=Fw.clone().sub(target).normalize();let side=new V().crossVectors(fd,new V(0,1,0));if(side.length()<1e-3)side.set(1,0,0);side.normalize().multiplyScalar(0.45);
+    const dir=Fw.clone().sub(target).normalize().add(side).add(gnd?new V(0,0.35,0):new V(0,0.12,0.35)).normalize();
+    T3.cam.position.copy(gnd?target.clone().lerp(Fw,0.35):target).add(dir.multiplyScalar(sceneScale*(gnd?1.9:1.55)));
   }else{
     const off=T3.cam.position.clone().sub(T3.ctl.target).multiplyScalar(sceneScale/T3.scale);
     T3.cam.position.copy(target).add(off);
@@ -475,7 +490,7 @@ function cards(){
     ['E at aim point',`${nf(st.Eaim,st.Eaim<100?1:0)} <small>lx</small>`],
     ['E average / max',st.cnt?`${nf(st.Eavg,st.Eavg<100?1:0)} / ${nf(st.Emax,st.Emax<100?1:0)} <small>lx</small>`:'—'],
     ['Uniformity',st.Ucore?`${nf(st.Ucore,2)} <small>Emin/Eavg, core</small>`:'—'],
-    ['Flux on wall',`${nf(st.flux,0)} <small>lm</small>`],
+    [`Flux on ${SURF()}`,`${nf(st.flux,0)} <small>lm</small>`],
     ['Throw to aim point',`${nf(g.L,2)} <small>m</small>`],
     ['Incidence',`${nf(g.theta*57.2958,1)}°`],
     ['Beam angle',`${nf(ang,1)}° <small>visible</small>`],
@@ -493,6 +508,7 @@ function cards(){
   else w.hidden=true;
 }
 function schematic(g,ang){
+  if(S.surf==='ground')return schematicGround(g,ang);
   $('schemTitle').textContent='Set-up · plan and side view';
   const a=ang/2*Math.PI/180;
   const part=(x0,off,H,title,lp,deg)=>{
@@ -513,15 +529,35 @@ function schematic(g,ang){
   $('schem').innerHTML=part(0,-F[0],F[2],'Plan: horizontal angle','offset',S.pan)+part(170,F[1],F[2],'Side: vertical angle','height',S.tlt)
    +`<text x="170" y="228" font-family="JetBrains Mono,monospace" font-size="10" fill="var(--muted)" text-anchor="middle">H to wall = ${nf(F[2],2)} m · L = ${nf(g.L,2)} m</text>`;
 }
+function schematicGround(g,ang){
+  $('schemTitle').textContent='Set-up · side view along the tilt';
+  const a=ang/2*Math.PI/180,H=g.F[2],D=Math.hypot(g.F[0],g.F[1]),t=Math.atan2(D,H);
+  const tf=Math.min(t+a,1.35),tn=t-a,far=H*Math.tan(tf),near=H*Math.tan(tn),lo=Math.min(0,near);
+  const sc=Math.min(170/H,250/(far-lo+0.2*H)),gy=200,px=40-lo*sc,fy=gy-H*sc;
+  const X=d=>px+d*sc,mono='font-family="JetBrains Mono,monospace" font-size="11" fill="var(--muted)"';
+  $('schem').innerHTML=`<line x1="10" y1="${gy}" x2="330" y2="${gy}" stroke="var(--fg)" stroke-width="2"/>
+  <line x1="${px}" y1="${gy}" x2="${px}" y2="${fy}" stroke="var(--muted)" stroke-width="3"/>
+  <polygon points="${px},${fy} ${Math.max(10,Math.min(330,X(near)))},${gy} ${Math.max(10,Math.min(330,X(far)))},${gy}" fill="var(--accent)" fill-opacity="0.2"/>
+  <line x1="${px}" y1="${fy}" x2="${X(D)}" y2="${gy}" stroke="var(--accent)" stroke-width="1.2"/>
+  <circle cx="${X(D)}" cy="${gy}" r="3" fill="var(--accent)"/><circle cx="${px}" cy="${fy}" r="4.5" fill="var(--fg)"/>
+  <text x="${px+8}" y="${(fy+gy)/2}" ${mono}>H ${nf(H,2)} m</text>
+  <text x="${px+8}" y="${fy-6}" ${mono}>tilt ${S.tlt}° · side ${S.pan}°</text>
+   <text x="${(px+X(D))/2}" y="${gy+14}" ${mono} text-anchor="middle">${nf(D,2)} m from pole</text>
+  <text x="170" y="228" ${mono} text-anchor="middle" font-size="10">L = ${nf(g.L,2)} m · incidence ${nf(g.theta*57.2958,1)}°</text>`;
+}
 let raf=0,idle=0;
 function schedule(){cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>render(200));clearTimeout(idle);idle=setTimeout(()=>render(420),160)}
 function syncVals(){
   $('rotGv').textContent=S.rotG+'°';
+  const gd=S.surf==='ground';
+  $('distLbl').textContent=gd?'Mounting height':'Distance to wall';$('panLbl').textContent=gd?'Side tilt':'Horizontal angle';$('tltLbl').textContent=gd?'Tilt from vertical':'Vertical angle';
+  $('geoNote').textContent=gd?'Fixture on a pole aiming down. Height is measured from the ground to the fixture; tilt is from straight down toward the aim point, side tilt is sideways from that plane. The throw along the beam follows from the angles.':'Angles of the fixture axis to the wall normal. Horizontal +: fixture to the right of the aim point; vertical +: fixture above it. Distance is the fixed perpendicular distance from the fixture to the wall; the throw along the beam follows from the angles.';
+  $('v2dBtn').textContent=gd?'Ground 2D':'Wall 2D';
   if(document.activeElement!==$('dimNum'))$('dimNum').value=S.dim;$('dim').value=S.dim;$('dimNote').textContent=S.dim>=100?'Full output. Dimming is linear in flux.':`${S.dim}% of flux. Illuminance scales linearly; the Light view shows the dimmed brightness.`;
   for(const k of['shT','shB','shL','shR'])$(k+'v').textContent=S[k]>=20?'out':nf(S[k],1);
   for(const k of['aT','aB','aL','aR'])$(k+'v').textContent=S[k]+'°';
   $('fsGobo').disabled=S.bf!=='gobo';$('fsShut').disabled=S.bf!=='shutter';
-  $('gateNote').textContent=S.bf==='gobo'?'Gobo in the gate; shutters are not used with a gobo. Shown as it lands on the wall (the physical gobo is inverted).':'Open Ø40 mm gate with shutters, viewed from the wall side.';
+  $('gateNote').textContent=S.bf==='gobo'?'Gobo in the gate; shutters are not used with a gobo. Shown as it lands on the '+SURF()+' (the physical gobo is inverted).':'Open Ø40 mm gate with shutters, viewed from the '+SURF()+' side.';
   if(document.activeElement!==$('distNum'))$('distNum').value=S.dist.toFixed(2);for(const k of['pan','tlt'])if(document.activeElement!==$(k+'Num'))$(k+'Num').value=S[k];
   if(document.activeElement!==$('lensNum'))$('lensNum').value=S.lens.toFixed(2);$('lens').value=S.lens;
 }
@@ -538,7 +574,7 @@ $('lensNum').addEventListener('change',e=>{let v=parseFloat(String(e.target.valu
 $('autoFocus').addEventListener('click',()=>{focusAim();syncVals();schedule()});
 function bindSeg(id,key,cb){const el=$(id);el.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S[key]=b.dataset.v;el.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));cb&&cb();syncVals();schedule()})}
 bindSeg('goboSeg','gobo',()=>{$('imgBox').hidden=S.gobo!=='img';drawGobo()});
-bindSeg('modeSeg','mode');bindSeg('bfSeg','bf',drawGobo);bindSeg('viewSeg','view',applyView);
+bindSeg('modeSeg','mode');bindSeg('surfSeg','surf',()=>{T3&&(T3.scale=null);const o=S.surf==='ground'?'wall':'ground';GEO[o]={dist:S.dist,pan:S.pan,tlt:S.tlt};Object.assign(S,GEO[S.surf]);$('dist').value=d2t(S.dist);$('pan').value=S.pan;$('tlt').value=S.tlt;focusAim()});bindSeg('bfSeg','bf',drawGobo);bindSeg('viewSeg','view',applyView);
 
 $('showEdge').addEventListener('change',e=>{S.edge=e.target.checked;schedule()});
 ['rotG','shT','shB','shL','shR','aT','aB','aL','aR'].forEach(id=>$(id).addEventListener('input',drawGobo));
@@ -582,7 +618,7 @@ function buildShot(){
   if(S.bf==='gobo'){kv('Gobo',goboLabel());kv('Rotation',S.rotG+'°')}
   else{kv('Mode','Shutters');for(const [n,p,a] of[['Top','shT','aT'],['Bottom','shB','aB'],['Left','shL','aL'],['Right','shR','aR']])kv(n,(S[p]>=20?'out':nf(S[p],1)+' mm')+' · '+S[a]+'°')}
   y=Math.max(y,gy0+110);
-  sec('Geometry');kv('Distance to wall',nf(S.dist,2)+' m');kv('Horizontal angle',S.pan+'°');kv('Vertical angle',S.tlt+'°');kv('Throw to aim point',nf(g.L,2)+' m');
+  const gd=S.surf==='ground';sec(gd?'Geometry · ground (pole)':'Geometry · wall');kv(gd?'Mounting height':'Distance to wall',nf(S.dist,2)+' m');kv(gd?'Side tilt':'Horizontal angle',S.pan+'°');kv(gd?'Tilt from vertical':'Vertical angle',S.tlt+'°');kv('Throw to aim point',nf(g.L,2)+' m');
   sec('Output');kv('Dimmer',S.dim+'%');
   sec('Focus');kv('Lens position',nf(S.lens,1)+' mm');kv('Sharp at',g.df>0&&isFinite(g.df)?nf(g.df,2)+' m':g.df===Infinity?'∞':'nowhere');
   sec('Results');for(const [kk,v] of lastCards.slice(0,9))kv(kk,String(v).replace(/<[^>]+>/g,'').replace(/\s+/g,' '));
