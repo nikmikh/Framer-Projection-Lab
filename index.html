@@ -85,7 +85,7 @@ fieldset:disabled{opacity:.38}
 <header>
   <h1>Framer Projection Lab</h1>
   <button class="shotbtn" id="aboutBtn" type="button" style="margin-left:auto;order:3">About</button>
-  <span class="sub">Prototype 0.5 · iGuzzini Palco Framer S892 · calibrated from LDT and on-site measurements, 26 Oct 2026</span>
+  <span class="sub">Prototype 0.6 · iGuzzini Palco Framer S892 · calibrated from LDT and on-site measurements, 26 Oct 2026</span>
 </header>
 
 <div class="app">
@@ -128,8 +128,7 @@ fieldset:disabled{opacity:.38}
         <div class="blade"><label for="shB">Bottom</label><input type="range" id="shB" min="0" max="20" step="0.1" value="12"><span class="val" id="shBv"></span><input type="range" id="aB" min="-45" max="45" step="1" value="0" aria-label="Bottom shutter angle"><span class="val" id="aBv"></span></div>
         <div class="blade"><label for="shL">Left</label><input type="range" id="shL" min="0" max="20" step="0.1" value="16"><span class="val" id="shLv"></span><input type="range" id="aL" min="-45" max="45" step="1" value="0" aria-label="Left shutter angle"><span class="val" id="aLv"></span></div>
         <div class="blade"><label for="shR">Right</label><input type="range" id="shR" min="0" max="20" step="0.1" value="16"><span class="val" id="shRv"></span><input type="range" id="aR" min="-45" max="45" step="1" value="0" aria-label="Right shutter angle"><span class="val" id="aRv"></span></div>
-        <div class="row"><label for="rotS">Module rotation</label><input type="range" id="rotS" min="-45" max="45" step="1" value="0"><span class="val" id="rotSv"></span></div>
-        <div class="note">Insertion is the edge distance from the gate centre, mm (20 = shutter out). Each magnetic shutter also rotates on its own; module rotation turns all four together. Open gate assumed Ø40 mm.</div>
+        <div class="note">Insertion is the edge distance from the gate centre, mm (20 = shutter out). Each magnetic shutter also rotates on its own; the shutter module itself does not rotate. Open gate assumed Ø40 mm.</div>
       </fieldset>
     </div>
 
@@ -140,6 +139,12 @@ fieldset:disabled{opacity:.38}
       <div class="row"><label for="tlt">Vertical angle</label><input type="range" id="tlt" min="-180" max="180" step="1" value="30"><input type="number" class="numin" id="tltNum" min="-180" max="180" step="1" value="30" aria-label="Vertical angle, degrees"></div>
       <div id="geoWarn" class="warn" hidden></div>
       <div class="note">Angles of the fixture axis to the wall normal. Horizontal +: fixture to the right of the aim point; vertical +: fixture above it. Distance is the fixed perpendicular distance from the fixture to the wall; the throw along the beam follows from the angles.</div>
+    </div>
+
+    <div class="sec">
+      <div class="lbl">Output</div>
+      <div class="row"><label for="dim">Dimmer</label><input type="range" id="dim" min="0" max="100" step="1" value="100"><input type="number" class="numin" id="dimNum" min="0" max="100" step="1" value="100" aria-label="Dimmer level, percent"></div>
+      <div class="note" id="dimNote"></div>
     </div>
 
     <div class="sec">
@@ -160,7 +165,7 @@ fieldset:disabled{opacity:.38}
           <span>Visible Ø/L at ∞</span><span>0.347 (19.7°)</span>
           <span>Near limit</span><span>0.75 m · travel 21.3 mm</span>
           <span>Field</span><span>LDT GOBO40A, ×6.05 klm</span>
-          <span>Aperture (estimate)</span><span>40 mm</span>
+          <span>Aperture (estimate)</span><span>19 mm</span>
           <span>Edge softness</span><span>0.15°</span>
         </div>
         <div class="note">The only control on the fixture is the lens travel. Aperture sets the blur outside the plane of focus; it is an estimate and not yet calibrated. The projection scale (87.3 mm) is fitted so the visible edge (≈37% of field) matches the measurements and the iGuzzini catalogue. Edge softness is the optics' own blur.</div>
@@ -212,12 +217,12 @@ fieldset:disabled{opacity:.38}
     <p>The projection optics are treated as one equivalent lens. For the iGuzzini Palco Framer S892 the LDT files with Ø30 and Ø40 gobos give the effective focal length (90.6 mm at the 50% edge) and the light field. On-site measurements at 0.75–5.5 m give the visible-edge scale (87.3 mm, Ø = 0.342·L) and the focus scale x = 11.0 + 2.59/(L − 0.50) mm.</p>
     <ul>
       <li>The visible edge is taken at ≈37% of the local field level.</li>
-      <li>Lens aperture for depth of field (40 mm) is an estimate, not yet calibrated.</li>
+      <li>Lens aperture for depth of field (19 mm) is set from on-site observation: at most about 10 cm of edge blur per metre of throw across the full lens travel.</li>
       <li>Stray light outside the edge (about 5% of flux in the LDT) is not shown.</li>
       <li>Shutters are assumed to lie in the gobo plane; open gate Ø40 mm.</li>
     </ul>
   </details>
-  <p class="note">Prototype 0.5 · October 2026</p>
+  <p class="note">Prototype 0.6 · October 2026</p>
 </div></div>
 <div id="modal" class="modal" hidden><div class="box"><div class="bar"><span>Clipboard access is blocked here. Right-click the image (long-press on a phone) and choose Copy image.</span><button id="modalClose" type="button">Close</button></div><img id="modalImg" alt="Screenshot of the scene with set-up parameters"></div></div>
 
@@ -228,7 +233,7 @@ const C={FV:87.3,F0:90.6,XI:11.023,K:2.5896,C0:0.498,R0:0.37737,G:-0.0027233,TRA
 const I40=[1830.4,1822.0,1809.5,1788.4,1758.5,1722.8,1693.2,1687.0,1692.4,1670.9];
 const $=id=>document.getElementById(id);
 const nf=(v,d)=>v.toFixed(d);
-const S={bf:'gobo',view:'3d',gobo:'r30',rotG:0,shT:12,shB:12,shL:16,shR:16,aT:0,aB:0,aL:0,aR:0,rotS:0,dist:3,pan:0,tlt:30,lens:12,ap:40,soft:0.15,mode:'light',edge:true};
+const S={bf:'gobo',view:'3d',gobo:'r30',rotG:0,shT:12,shB:12,shL:16,shR:16,aT:0,aB:0,aL:0,aR:0,rotS:0,dim:100,dist:3,pan:0,tlt:30,lens:12,ap:19,soft:0.15,mode:'light',edge:true};
 let IMG=null;
 
 function lensPos(df){return isFinite(df)?C.XI+C.K/(df-C.C0):C.XI}
@@ -306,7 +311,7 @@ function render(N){
   const U0=cu-half,V1=cvv+half,pix=2*half/N;
   const E=new Float32Array(N*N),MB=new Float32Array(N*N),RD=new Float32Array(N*N);
   const Ar=S.ap/2,R0=s*Math.tan(S.soft*Math.PI/180),Vf=g.Vf;/* focus vergence in 1/m from the calibrated scale; negative = lens past ∞ */
-  const k2=C.KLM*(s/C.FV)**2,lim=goboRmax()*1.0;
+  const k2=C.KLM*(s/C.FV)**2*S.dim/100,lim=goboRmax()*1.0;
   for(let j=0;j<N;j++){
     const v=V1-(j+.5)*pix,dy=v-F[1];
     for(let i=0;i<N;i++){
@@ -345,7 +350,7 @@ const PAL=[[16,18,38],[38,56,140],[24,134,160],[112,196,92],[246,214,58],[255,25
 function pal(t){t=Math.min(1,Math.max(0,t))*(PAL.length-1);const i=Math.min(PAL.length-2,Math.floor(t)),f=t-i,a=PAL[i],b=PAL[i+1];return[a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,a[2]+(b[2]-a[2])*f]}
 function paint(E,MB,N,Emax){
   off.width=N;off.height=N;const im=octx.createImageData(N,N),d=im.data;
-  const Eref=Math.max(Emax*0.55,1e-6);
+  const Eref=Math.max(Emax/Math.max(S.dim/100,1e-3)*0.55,1e-6);
   for(let k=0;k<N*N;k++){
     let r,gg,b;const e=E[k];
     if(S.mode==='light'){const v=Math.pow(1-Math.exp(-e/Eref),1/1.5);r=29+226*v;gg=30+186*v;b=33+124*v}
@@ -511,7 +516,8 @@ function schematic(g,ang){
 let raf=0,idle=0;
 function schedule(){cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>render(200));clearTimeout(idle);idle=setTimeout(()=>render(420),160)}
 function syncVals(){
-  $('rotGv').textContent=S.rotG+'°';$('rotSv').textContent=S.rotS+'°';
+  $('rotGv').textContent=S.rotG+'°';
+  if(document.activeElement!==$('dimNum'))$('dimNum').value=S.dim;$('dim').value=S.dim;$('dimNote').textContent=S.dim>=100?'Full output. Dimming is linear in flux.':`${S.dim}% of flux. Illuminance scales linearly; the Light view shows the dimmed brightness.`;
   for(const k of['shT','shB','shL','shR'])$(k+'v').textContent=S[k]>=20?'out':nf(S[k],1);
   for(const k of['aT','aB','aL','aR'])$(k+'v').textContent=S[k]+'°';
   $('fsGobo').disabled=S.bf!=='gobo';$('fsShut').disabled=S.bf!=='shutter';
@@ -520,7 +526,7 @@ function syncVals(){
   if(document.activeElement!==$('lensNum'))$('lensNum').value=S.lens.toFixed(2);$('lens').value=S.lens;
 }
 function bindRange(id,key,parse=parseFloat){$(id).addEventListener('input',e=>{S[key]=parse(e.target.value);syncVals();schedule()})}
-bindRange('rotG','rotG');bindRange('rotS','rotS');['shT','shB','shL','shR','aT','aB','aL','aR'].forEach(k=>bindRange(k,k));
+bindRange('rotG','rotG');bindRange('dim','dim',v=>parseInt(v,10));$('dimNum').addEventListener('change',e=>{let v=parseFloat(e.target.value);if(!isFinite(v))v=S.dim;S.dim=Math.max(0,Math.min(100,Math.round(v)));syncVals();schedule()});['shT','shB','shL','shR','aT','aB','aL','aR'].forEach(k=>bindRange(k,k));
 const DMIN=0.3,DMAX=40;
 const d2t=d=>Math.round(Math.log(d/DMIN)/Math.log(DMAX/DMIN)*1000),t2d=t=>DMIN*Math.pow(DMAX/DMIN,t/1000);
 $('dist').value=d2t(S.dist);
@@ -535,7 +541,7 @@ bindSeg('goboSeg','gobo',()=>{$('imgBox').hidden=S.gobo!=='img';drawGobo()});
 bindSeg('modeSeg','mode');bindSeg('bfSeg','bf',drawGobo);bindSeg('viewSeg','view',applyView);
 
 $('showEdge').addEventListener('change',e=>{S.edge=e.target.checked;schedule()});
-['rotG','rotS','shT','shB','shL','shR','aT','aB','aL','aR'].forEach(id=>$(id).addEventListener('input',drawGobo));
+['rotG','shT','shB','shL','shR','aT','aB','aL','aR'].forEach(id=>$(id).addEventListener('input',drawGobo));
 
 function loadImg(file){
   const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{
@@ -574,9 +580,10 @@ function buildShot(){
   const kv=(k,v)=>{x.fillStyle='#9aa1ab';x.font=`13px ${ui}`;x.fillText(k,L,y);x.fillStyle='#fff';x.font=`13px ${mono}`;x.fillText(v,L+150,y);y+=19};
   sec('Beam shaping');
   if(S.bf==='gobo'){kv('Gobo',goboLabel());kv('Rotation',S.rotG+'°')}
-  else{kv('Mode','Shutters');for(const [n,p,a] of[['Top','shT','aT'],['Bottom','shB','aB'],['Left','shL','aL'],['Right','shR','aR']])kv(n,(S[p]>=20?'out':nf(S[p],1)+' mm')+' · '+S[a]+'°');kv('Module rotation',S.rotS+'°')}
+  else{kv('Mode','Shutters');for(const [n,p,a] of[['Top','shT','aT'],['Bottom','shB','aB'],['Left','shL','aL'],['Right','shR','aR']])kv(n,(S[p]>=20?'out':nf(S[p],1)+' mm')+' · '+S[a]+'°')}
   y=Math.max(y,gy0+110);
   sec('Geometry');kv('Distance to wall',nf(S.dist,2)+' m');kv('Horizontal angle',S.pan+'°');kv('Vertical angle',S.tlt+'°');kv('Throw to aim point',nf(g.L,2)+' m');
+  sec('Output');kv('Dimmer',S.dim+'%');
   sec('Focus');kv('Lens position',nf(S.lens,1)+' mm');kv('Sharp at',g.df>0&&isFinite(g.df)?nf(g.df,2)+' m':g.df===Infinity?'∞':'nowhere');
   sec('Results');for(const [kk,v] of lastCards.slice(0,9))kv(kk,String(v).replace(/<[^>]+>/g,'').replace(/\s+/g,' '));
   x.fillStyle='#6f7680';x.font=`11px ${ui}`;x.fillText(S.mode==='lux'?'View: illuminance (false colour)':'View: light',L,H-18);
