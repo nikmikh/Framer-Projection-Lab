@@ -56,7 +56,7 @@ h2{font-size:13px;font-weight:600;color:var(--muted);margin:0}
 .src{font-size:12px;color:var(--muted);margin-top:-6px}
 .stats{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px}
 .stats dt{color:var(--muted)}
-.stats dd{margin:0;text-align:right}
+.stats dd{margin:0;text-align:right;white-space:nowrap}
 .ctl{display:flex;flex-direction:column;gap:2px}
 .ctl .top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px}
 .ctl .top label{color:var(--text)}
@@ -79,7 +79,7 @@ input[type=range]{width:100%;accent-color:var(--amber);height:24px;margin:0}
 fieldset{border:0;margin:0;padding:0;min-width:0;display:flex;flex-direction:column;gap:10px}
 fieldset:disabled{display:none}
 .blade{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:2px 12px}
-.blade .top{grid-column:1/-1}
+.blade .top{grid-column:1/-1;display:flex;justify-content:space-between;gap:8px;font-size:13px}
 .chk{display:flex;align-items:center;gap:6px;font-size:13px}
 .chk input{accent-color:var(--amber)}
 #schem{width:100%;height:auto;display:block}
@@ -128,6 +128,8 @@ a{color:var(--amber)}
     <div class="seg" role="group" aria-label="View" id="viewSeg"><button type="button" data-v="3d" aria-pressed="true">3D</button><button type="button" data-v="2d" aria-pressed="false" id="v2dBtn">Wall 2D</button></div>
     <div class="seg" role="group" aria-label="Display mode" id="modeSeg"><button type="button" data-v="light" aria-pressed="true">Light</button><button type="button" data-v="lux" aria-pressed="false">Illuminance</button></div>
     <label class="pill"><input type="checkbox" id="showEdge" checked> Visible edge</label>
+    <label class="pill"><input type="checkbox" id="showRays" checked> Beam</label>
+    <label class="pill"><input type="checkbox" id="showXYZ" checked> X Y Z</label>
     <div class="seg" role="group" aria-label="Units" id="unitSeg"><button type="button" data-v="si" aria-pressed="true">m · lx</button><button type="button" data-v="imp" aria-pressed="false">ft · fc</button></div>
   </div>
   <div class="legend" id="legend" hidden><div id="legTitle">Illuminance</div><div class="bar" id="legBar"></div><div class="ticks"><span id="leg0">0</span><span id="leg1"></span><span id="leg2"></span></div></div>
@@ -155,6 +157,13 @@ a{color:var(--amber)}
   </section>
 
   <section>
+    <h2>Fixture mounting</h2>
+    <div class="sbseg" role="group" aria-label="Product version" id="verSeg"><button type="button" data-v="base" aria-pressed="true">On base</button><button type="button" data-v="flange" aria-pressed="false">On flange (pole)</button></div>
+    <div class="sbseg" role="group" aria-label="Mounting surface" id="mountSeg"><button type="button" data-v="up" aria-pressed="true">Floor</button><button type="button" data-v="down" aria-pressed="false">Ceiling</button><button type="button" data-v="wall" aria-pressed="false">Wall</button></div>
+    <p class="note" id="verNote"></p>
+  </section>
+
+  <section>
     <h2>Beam shaping</h2>
     <div class="sbseg" role="group" aria-label="Beam shaping" id="bfSeg"><button type="button" data-v="shutter" aria-pressed="false">Shutters</button><button type="button" data-v="gobo" aria-pressed="true">Gobo</button></div>
     <div class="gate"><canvas id="goboCv" width="240" height="240" aria-label="Gate view: gobo or shutters"></canvas><p class="note" id="gateNote"></p></div>
@@ -164,8 +173,12 @@ a{color:var(--amber)}
         <div class="presets"><button type="button" id="imgPick">Open image…</button></div>
         <input type="file" id="imgFile" accept="image/*" hidden>
         <label class="chk" style="margin-top:8px"><input type="checkbox" id="imgInv"> Invert (dark areas pass light)</label>
-        <p class="note" style="margin-top:6px">Drop an image anywhere on the page. The square maps to 40×40 mm of the gate; light areas pass light.</p>
+        <p class="note" style="margin-top:6px">Drop an image anywhere on the page. The image square is the Ø53.3 mm gobo disc; only the central Ø40 mm circle projects. Light areas pass light.</p>
       </div>
+      <label class="chk"><input type="checkbox" id="kcChk"> Keystone correction: pre-distort the gobo so the image lands undistorted (1:1)</label>
+      <div class="presets" id="kcBox"><button type="button" id="kcCopy">Copy gobo for print</button></div>
+      <p class="note">Print file: square raster of the Ø53.3 mm gobo disc, 2132 px (40 px/mm). White is open, black is metal; the design stays inside the central Ø40 mm. Drawn as it sits in the gate, seen from behind the fixture with the fixture top at the top.</p>
+      <p class="note" id="kcNote" hidden></p>
       <div class="ctl"><div class="top"><label for="rotG">Rotation</label><span class="v" id="rotGv"></span></div><input type="range" id="rotG" min="-180" max="180" step="1" value="0"></div>
     </fieldset>
     <fieldset id="fsShut" disabled>
@@ -210,6 +223,8 @@ a{color:var(--amber)}
       <span>Field</span><span>LDT GOBO40A × 6.05 klm</span>
       <span>Aperture</span><span>19 mm, approximate</span>
       <span>Edge softness</span><span>0.15°</span>
+      <span>Gate behind front glass</span><span>130 mm, approximate</span>
+      <span>Body model</span><span>from 3D model, 397 mm × Ø167</span>
     </div>
     <p class="note">The projection optics are treated as one equivalent lens. The LDT files with Ø30 and Ø40 gobos give the focal length and light field; on-site measurements at 0.75–5.5 m give the visible-edge scale and focus scale. The visible edge is taken at about 37% of the local field. The aperture is set from site observation (at most about 10 cm of blur per metre of throw). Stray light outside the edge, about 5% of flux in the LDT, is not shown. Shutters are assumed to lie in the gobo plane.</p>
   </details>
@@ -241,15 +256,17 @@ a{color:var(--amber)}
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
 <script>
 /* ---------- calibration (iGuzzini Palco Framer S892) ---------- */
+const MODEL={"base":{"p":[60.0,0.0,-0.0,58.41,0.0,-13.75,58.41,40.0,-13.75,60.0,40.0,-0.0,53.9,0.0,-26.37,53.9,40.0,-26.37,46.81,0.0,-37.51,46.81,40.0,-37.51,37.51,0.0,-46.81,37.51,40.0,-46.81,26.37,0.0,-53.9,26.37,40.0,-53.9,13.75,0.0,-58.41,13.75,40.0,-58.41,0.0,0.0,-60.0,0.0,40.0,-60.0,-13.75,0.0,-58.41,-13.75,40.0,-58.41,-26.37,0.0,-53.9,-26.37,40.0,-53.9,-37.51,0.0,-46.81,-37.51,40.0,-46.81,-46.81,0.0,-37.51,-46.81,40.0,-37.51,-53.9,0.0,-26.37,-53.9,40.0,-26.37,-58.41,0.0,-13.75,-58.41,40.0,-13.75,-60.0,0.0,-0.0,-60.0,40.0,-0.0,-58.41,0.0,13.75,-58.41,40.0,13.75,-53.9,0.0,26.37,-53.9,40.0,26.37,-46.81,0.0,37.51,-46.81,40.0,37.51,-37.51,0.0,46.81,-37.51,40.0,46.81,-26.37,0.0,53.9,-26.37,40.0,53.9,-13.75,0.0,58.41,-13.75,40.0,58.41,0.0,0.0,60.0,0.0,40.0,60.0,13.75,0.0,58.41,13.75,40.0,58.41,26.37,0.0,53.9,26.37,40.0,53.9,37.51,0.0,46.81,37.51,40.0,46.81,46.81,0.0,37.51,46.81,40.0,37.51,53.9,0.0,26.37,53.9,40.0,26.37,58.41,0.0,13.75,58.41,40.0,13.75,58.41,0.0,13.75,58.41,0.0,-13.75,60.0,0.0,-0.0,53.9,0.0,26.37,53.9,0.0,-26.37,46.81,0.0,-37.51,46.81,0.0,37.51,37.51,0.0,46.81,37.51,0.0,-46.81,26.37,0.0,-53.9,13.75,0.0,-58.41,0.0,0.0,-60.0,-13.75,0.0,-58.41,-26.37,0.0,-53.9,-37.51,0.0,-46.81,-46.81,0.0,-37.51,-53.9,0.0,-26.37,-58.41,0.0,-13.75,-60.0,0.0,-0.0,-58.41,0.0,13.75,-53.9,0.0,26.37,-46.81,0.0,37.51,-37.51,0.0,46.81,-26.37,0.0,53.9,-13.75,0.0,58.41,0.0,0.0,60.0,13.75,0.0,58.41,26.37,0.0,53.9,58.41,40.0,13.75,60.0,40.0,-0.0,58.41,40.0,-13.75,53.9,40.0,26.37,53.9,40.0,-26.37,46.81,40.0,-37.51,46.81,40.0,37.51,37.51,40.0,46.81,37.51,40.0,-46.81,26.37,40.0,-53.9,13.75,40.0,-58.41,0.0,40.0,-60.0,-13.75,40.0,-58.41,-26.37,40.0,-53.9,-37.51,40.0,-46.81,-46.81,40.0,-37.51,-53.9,40.0,-26.37,-58.41,40.0,-13.75,-60.0,40.0,-0.0,-58.41,40.0,13.75,-53.9,40.0,26.37,-46.81,40.0,37.51,-37.51,40.0,46.81,-26.37,40.0,53.9,-13.75,40.0,58.41,0.0,40.0,60.0,13.75,40.0,58.41,26.37,40.0,53.9],"i":[0,1,2,0,2,3,1,4,5,1,5,2,4,6,7,4,7,5,6,8,9,6,9,7,8,10,11,8,11,9,10,12,13,10,13,11,12,14,15,12,15,13,14,16,17,14,17,15,16,18,19,16,19,17,18,20,21,18,21,19,20,22,23,20,23,21,22,24,25,22,25,23,24,26,27,24,27,25,26,28,29,26,29,27,28,30,31,28,31,29,30,32,33,30,33,31,32,34,35,32,35,33,34,36,37,34,37,35,36,38,39,36,39,37,38,40,41,38,41,39,40,42,43,40,43,41,42,44,45,42,45,43,44,46,47,44,47,45,46,48,49,46,49,47,48,50,51,48,51,49,50,52,53,50,53,51,52,54,55,52,55,53,54,0,3,54,3,55,56,57,58,59,57,56,59,60,57,59,61,60,62,61,59,63,61,62,63,64,61,63,65,64,63,66,65,63,67,66,63,68,67,63,69,68,63,70,69,63,71,70,63,72,71,63,73,72,63,74,73,63,75,74,63,76,75,63,77,76,63,78,77,63,79,78,63,80,79,63,81,80,63,82,81,63,83,82,84,85,86,87,84,86,87,86,88,87,88,89,90,87,89,91,90,89,91,89,92,91,92,93,91,93,94,91,94,95,91,95,96,91,96,97,91,97,98,91,98,99,91,99,100,91,100,101,91,101,102,91,102,103,91,103,104,91,104,105,91,105,106,91,106,107,91,107,108,91,108,109,91,109,110,91,110,111]},"bracket":{"p":[-0.0,83.56,43.18,-0.0,73.56,43.18,31.29,73.56,43.18,31.29,83.56,43.18,-0.0,96.51,48.94,-0.0,83.56,43.18,31.29,83.56,43.18,31.29,96.51,48.94,-0.0,111.66,48.94,-0.0,96.51,48.94,31.29,96.51,48.94,31.29,111.66,48.94,-0.0,122.13,43.18,-0.0,111.66,48.94,31.29,111.66,48.94,31.29,122.13,43.18,-0.0,132.94,28.8,-0.0,122.13,43.18,31.29,122.13,43.18,31.29,132.94,28.8,-0.0,132.94,8.71,-0.0,132.94,28.8,31.29,132.94,28.8,31.29,132.94,8.71,-0.0,122.13,-5.67,-0.0,132.94,8.71,31.29,132.94,8.71,31.29,122.13,-5.67,-0.0,111.66,-11.42,-0.0,122.13,-5.67,31.29,122.13,-5.67,31.29,111.66,-11.42,-0.0,96.51,-11.42,-0.0,111.66,-11.42,31.29,111.66,-11.42,31.29,96.51,-11.42,-0.0,83.56,-5.67,-0.0,96.51,-11.42,31.29,96.51,-11.42,31.29,83.56,-5.67,-0.0,73.56,-5.67,-0.0,83.56,-5.67,31.29,83.56,-5.67,31.29,73.56,-5.67,-0.0,40.0,43.18,-0.0,40.0,-5.67,31.29,40.0,-5.67,31.29,40.0,43.18,-0.0,40.0,43.18,31.29,40.0,43.18,-31.55,73.56,43.18,-31.55,73.56,-5.67,-31.55,40.0,-5.67,-31.55,40.0,43.18,31.29,40.0,-5.67,-0.0,40.0,-5.67,31.29,73.56,-5.67,31.29,73.56,43.18,31.29,40.0,43.18,31.29,40.0,-5.67,31.29,83.56,43.18,31.29,83.56,-5.67,31.29,96.51,-11.42,31.29,111.66,-11.42,31.29,122.13,-5.67,31.29,132.94,8.71,31.29,132.94,28.8,31.29,122.13,43.18,31.29,111.66,48.94,31.29,96.51,48.94,-0.0,83.56,-5.67,-0.0,73.56,-5.67,-0.0,73.56,43.18,-0.0,83.56,43.18,-0.0,96.51,48.94,-0.0,111.66,48.94,-0.0,122.13,43.18,-0.0,132.94,28.8,-0.0,132.94,8.71,-0.0,122.13,-5.67,-0.0,111.66,-11.42,-0.0,96.51,-11.42,-0.0,73.56,43.18,-0.0,73.56,-5.67,-31.55,73.56,-5.67,-31.55,73.56,43.18,-31.55,40.0,-5.67,-31.55,73.56,-5.67,-31.55,40.0,43.18,-31.55,40.0,-5.67,-31.55,73.56,43.18,-31.55,40.0,43.18],"i":[0,1,2,2,3,0,4,5,6,6,7,4,8,9,10,10,11,8,12,13,14,14,15,12,16,17,18,18,19,16,20,21,22,22,23,20,24,25,26,26,27,24,28,29,30,30,31,28,32,33,34,34,35,32,36,37,38,38,39,36,40,41,42,42,43,40,44,45,46,46,47,44,2,1,48,48,49,2,50,51,52,52,53,50,40,43,54,54,55,40,56,57,58,58,59,56,60,57,56,60,56,61,61,62,63,61,63,64,64,65,66,66,67,68,64,66,68,61,64,68,60,61,68,60,68,69,70,71,72,70,72,73,73,74,75,73,75,76,76,77,78,78,79,80,76,78,80,73,76,80,70,73,80,70,80,81,82,83,84,84,85,82,40,55,86,86,87,40,45,44,88,88,89,45,48,1,90,90,91,48]},"body":{"p":[-0.0,460.94,183.18,-18.1,460.94,179.58,-18.75,388.38,181.15,-0.0,388.38,184.88,-0.0,388.38,184.88,-18.75,388.38,181.15,-21.87,388.38,188.68,-0.0,388.38,193.04,-0.0,388.38,193.04,-21.87,388.38,188.68,-23.45,239.04,192.48,-0.0,239.04,197.15,-0.0,239.04,197.15,-23.45,239.04,192.48,-30.12,239.04,208.59,-0.0,239.04,214.58,-30.12,239.04,208.59,-31.29,128.23,211.43,-0.0,128.23,217.65,-0.0,239.04,214.58,-33.45,460.94,169.32,-34.65,388.38,170.52,-34.65,388.38,170.52,-40.42,388.38,176.29,-40.42,388.38,176.29,-43.32,239.04,179.2,-43.32,239.04,179.2,-55.65,239.04,191.53,-55.65,239.04,191.53,-57.83,128.23,193.7,-43.7,460.94,153.98,-45.27,388.38,154.63,-45.27,388.38,154.63,-52.81,388.38,157.75,-52.81,388.38,157.75,-56.61,239.04,159.32,-56.61,239.04,159.32,-72.72,239.04,165.99,-72.72,239.04,165.99,-75.55,128.23,167.17,-47.31,460.94,135.88,-49.0,388.38,135.88,-49.0,388.38,135.88,-57.16,388.38,135.88,-57.16,388.38,135.88,-61.27,239.04,135.88,-61.27,239.04,135.88,-78.71,239.04,135.88,-78.71,239.04,135.88,-81.78,128.23,135.87,-43.7,460.94,117.77,-45.27,388.38,117.12,-45.27,388.38,117.12,-52.81,388.38,114.0,-52.81,388.38,114.0,-56.61,239.04,112.43,-56.61,239.04,112.43,-72.72,239.04,105.76,-72.72,239.04,105.76,-75.55,128.23,104.58,-33.45,460.94,102.43,-34.65,388.38,101.23,-34.65,388.38,101.23,-40.42,388.38,95.46,-40.42,388.38,95.46,-43.32,239.04,92.55,-43.32,239.04,92.55,-55.65,239.04,80.22,-55.65,239.04,80.22,-57.83,128.23,78.05,-18.1,460.94,92.17,-18.75,388.38,90.6,-18.75,388.38,90.6,-21.87,388.38,83.07,-21.87,388.38,83.07,-23.45,239.04,79.27,-23.45,239.04,79.27,-30.12,239.04,63.16,-30.12,239.04,63.16,-31.29,128.23,60.32,-0.0,460.94,88.57,-0.0,388.38,86.87,-0.0,388.38,86.87,-0.0,388.38,78.71,-0.0,388.38,78.71,-0.0,239.04,74.6,-0.0,239.04,74.6,-0.0,239.04,57.17,-0.0,239.04,57.17,-0.0,128.23,54.1,18.1,460.94,92.17,18.75,388.38,90.6,18.75,388.38,90.6,21.87,388.38,83.07,21.87,388.38,83.07,23.45,239.04,79.27,23.45,239.04,79.27,30.12,239.04,63.16,30.12,239.04,63.16,31.29,128.23,60.32,33.45,460.94,102.43,34.65,388.38,101.23,34.65,388.38,101.23,40.42,388.38,95.46,40.42,388.38,95.46,43.32,239.04,92.55,43.32,239.04,92.55,55.65,239.04,80.22,55.65,239.04,80.22,57.82,128.23,78.05,43.7,460.94,117.77,45.27,388.38,117.12,45.27,388.38,117.12,52.81,388.38,114.0,52.81,388.38,114.0,56.61,239.04,112.43,56.61,239.04,112.43,72.72,239.04,105.76,72.72,239.04,105.76,75.55,128.23,104.58,47.31,460.94,135.88,49.0,388.38,135.88,49.0,388.38,135.88,57.16,388.38,135.88,57.16,388.38,135.88,61.27,239.04,135.88,61.27,239.04,135.88,78.71,239.04,135.88,78.71,239.04,135.88,81.78,128.23,135.87,43.7,460.94,153.98,45.27,388.38,154.63,45.27,388.38,154.63,52.81,388.38,157.75,52.81,388.38,157.75,56.61,239.04,159.32,56.61,239.04,159.32,72.72,239.04,165.99,72.72,239.04,165.99,75.55,128.23,167.17,33.45,460.94,169.32,34.65,388.38,170.52,34.65,388.38,170.52,40.42,388.38,176.29,40.42,388.38,176.29,43.32,239.04,179.2,43.32,239.04,179.2,55.65,239.04,191.53,55.65,239.04,191.53,57.82,128.23,193.7,18.1,460.94,179.58,18.75,388.38,181.15,18.75,388.38,181.15,21.87,388.38,188.68,21.87,388.38,188.68,23.45,239.04,192.48,23.45,239.04,192.48,30.12,239.04,208.59,30.12,239.04,208.59,31.29,128.23,211.43,-31.81,79.38,212.68,-0.0,79.38,219.01,-58.78,79.38,194.66,-76.8,79.38,167.69,-83.13,79.38,135.87,-76.8,79.38,104.06,-58.78,79.38,77.09,-31.81,79.38,59.07,31.81,79.66,47.61,-0.0,79.66,47.61,-0.0,128.51,47.61,31.29,128.51,47.61,58.78,79.38,77.09,31.81,79.38,59.07,76.8,79.38,104.06,83.13,79.38,135.87,76.8,79.38,167.69,58.78,79.38,194.66,31.81,79.38,212.68,-31.97,64.11,213.07,-0.0,64.11,219.43,-59.08,64.11,194.96,-77.19,64.11,167.85,-83.55,64.11,135.87,-77.19,64.11,103.9,-59.08,64.11,76.79,-31.97,64.11,58.68,-0.0,64.11,52.32,-0.0,79.38,52.74,31.97,64.11,58.68,59.08,64.11,76.79,77.19,64.11,103.9,83.55,64.11,135.87,77.19,64.11,167.85,59.08,64.11,194.96,31.97,64.11,213.07,-31.81,79.38,59.07,-31.29,128.23,60.32,-31.29,128.51,47.61,-31.81,79.66,47.61,31.29,128.23,60.32,31.81,79.38,59.07,31.81,79.66,47.61,31.29,128.51,47.61,-0.0,128.51,47.61,-0.0,79.66,47.61,-0.0,79.66,36.8,-0.0,128.51,36.8,-0.0,79.66,47.61,-31.81,79.66,47.61,-31.81,79.66,36.8,-0.0,79.66,36.8,-31.29,128.51,36.8,-31.81,79.66,36.8,-31.29,128.51,47.61,-0.0,128.51,47.61,-0.0,128.51,36.8,-31.29,128.51,36.8,-0.0,73.91,26.33,-0.0,134.27,26.33,-31.81,73.9,26.33,-0.0,73.91,26.33,-0.0,134.27,26.33,-31.29,134.27,26.33,-0.0,73.91,11.17,-0.0,134.27,11.17,-31.81,73.91,11.17,-0.0,73.91,11.17,-0.0,134.27,11.17,-31.29,134.27,11.17,-31.29,134.27,26.33,-31.81,73.9,26.33,-31.29,128.23,60.32,-0.0,128.23,54.1,31.29,128.23,60.32,31.29,128.51,47.61,31.81,79.38,59.07,-0.0,79.38,52.74,31.81,79.66,47.61,-31.81,79.38,59.07,-31.29,134.27,11.17,-31.81,73.91,11.17,-0.0,79.66,-1.78,-0.0,94.04,-11.77,-0.0,114.12,-11.78,-0.0,128.51,-1.78,-31.81,79.66,-1.78,-31.66,94.04,-11.77,-0.0,94.04,-11.77,-0.0,79.66,-1.78,-31.29,128.51,-1.78,-31.45,114.12,-11.78,-31.66,94.04,-11.77,-31.81,79.66,-1.78,-0.0,128.51,-1.78,-0.0,114.12,-11.78,-31.45,114.12,-11.78,-31.29,128.51,-1.78,-31.81,79.66,-1.78,-0.0,79.66,-1.78,-0.0,128.51,-1.78,-31.29,128.51,-1.78,18.1,460.94,179.58,33.45,460.94,169.32,43.7,460.94,153.98,47.31,460.94,135.88,43.7,460.94,117.77,33.45,460.94,102.43,18.1,460.94,92.17,-0.0,460.94,88.57,-18.1,460.94,92.17,-33.45,460.94,102.43,-43.7,460.94,117.77,-47.31,460.94,135.88,-43.7,460.94,153.98,-33.45,460.94,169.32,-18.1,460.94,179.58,-0.0,460.94,183.18,-59.08,64.11,194.96,-77.19,64.11,167.85,-83.55,64.11,135.87,-77.19,64.11,103.9,-59.08,64.11,76.79,-31.97,64.11,58.68,-0.0,64.11,52.32,31.97,64.11,58.68,59.08,64.11,76.79,77.19,64.11,103.9,83.55,64.11,135.87,77.19,64.11,167.85,59.08,64.11,194.96,31.97,64.11,213.07,-0.0,64.11,219.43,-31.97,64.11,213.07],"i":[0,1,2,2,3,0,4,5,6,6,7,4,8,9,10,10,11,8,12,13,14,14,15,12,16,17,18,18,19,16,1,20,21,21,2,1,5,22,23,23,6,5,9,24,25,25,10,9,13,26,27,27,14,13,28,29,17,17,16,28,20,30,31,31,21,20,22,32,33,33,23,22,24,34,35,35,25,24,26,36,37,37,27,26,38,39,29,29,28,38,30,40,41,41,31,30,32,42,43,43,33,32,34,44,45,45,35,34,36,46,47,47,37,36,48,49,39,39,38,48,40,50,51,51,41,40,42,52,53,53,43,42,44,54,55,55,45,44,46,56,57,57,47,46,58,59,49,49,48,58,50,60,61,61,51,50,52,62,63,63,53,52,54,64,65,65,55,54,56,66,67,67,57,56,68,69,59,59,58,68,60,70,71,71,61,60,62,72,73,73,63,62,64,74,75,75,65,64,66,76,77,77,67,66,78,79,69,69,68,78,70,80,81,81,71,70,72,82,83,83,73,72,74,84,85,85,75,74,76,86,87,87,77,76,88,89,79,79,78,88,80,90,91,91,81,80,82,92,93,93,83,82,84,94,95,95,85,84,86,96,97,97,87,86,98,99,89,89,88,98,90,100,101,101,91,90,92,102,103,103,93,92,94,104,105,105,95,94,96,106,107,107,97,96,108,109,99,99,98,108,100,110,111,111,101,100,102,112,113,113,103,102,104,114,115,115,105,104,106,116,117,117,107,106,118,119,109,109,108,118,110,120,121,121,111,110,112,122,123,123,113,112,114,124,125,125,115,114,116,126,127,127,117,116,128,129,119,119,118,128,120,130,131,131,121,120,122,132,133,133,123,122,124,134,135,135,125,124,126,136,137,137,127,126,138,139,129,129,128,138,130,140,141,141,131,130,132,142,143,143,133,132,134,144,145,145,135,134,136,146,147,147,137,136,148,149,139,139,138,148,140,150,151,151,141,140,142,152,153,153,143,142,144,154,155,155,145,144,146,156,157,157,147,146,158,159,149,149,148,158,150,0,3,3,151,150,152,4,7,7,153,152,154,8,11,11,155,154,156,12,15,15,157,156,19,18,159,159,158,19,160,161,18,18,17,160,162,160,17,17,29,162,163,162,29,29,39,163,164,163,39,39,49,164,165,164,49,49,59,165,166,165,59,59,69,166,167,166,69,69,79,167,168,169,170,170,171,168,172,173,99,99,109,172,174,172,109,109,119,174,175,174,119,119,129,175,176,175,129,129,139,176,177,176,139,139,149,177,178,177,149,149,159,178,161,178,159,159,18,161,179,180,161,161,160,179,181,179,160,160,162,181,182,181,162,162,163,182,183,182,163,163,164,183,184,183,164,164,165,184,185,184,165,165,166,185,186,185,166,166,167,186,187,186,167,167,188,187,189,187,188,188,173,189,190,189,173,173,172,190,191,190,172,172,174,191,192,191,174,174,175,192,193,192,175,175,176,193,194,193,176,176,177,194,195,194,177,177,178,195,180,195,178,178,161,180,196,197,198,198,199,196,200,201,202,202,203,200,204,205,206,206,207,204,208,209,210,210,211,208,199,198,212,212,213,199,214,215,216,216,217,214,207,206,218,218,219,207,211,210,220,220,221,211,217,216,222,222,223,217,218,224,225,225,219,218,220,226,227,227,221,220,222,228,229,229,223,222,213,212,230,230,231,213,232,233,215,215,214,232,233,234,235,235,215,233,236,237,208,208,238,236,237,239,209,209,208,237,230,240,241,241,231,230,242,243,244,244,245,242,246,247,248,248,249,246,250,251,252,252,253,250,254,255,256,256,257,254,242,245,225,225,224,242,258,259,227,227,226,258,260,261,229,229,228,260,250,253,241,241,240,250,248,247,256,256,255,248,262,263,264,264,265,266,266,267,268,264,266,268,268,269,270,270,271,272,268,270,272,272,273,274,274,275,276,272,274,276,268,272,276,264,268,276,262,264,276,277,262,276,278,279,280,280,281,282,282,283,284,280,282,284,284,285,286,286,287,288,284,286,288,288,289,290,290,291,292,288,290,292,284,288,292,280,284,292,278,280,292,293,278,292]}};
 const C={FV:87.3,F0:90.6,XI:11.023,K:2.5896,C0:0.498,R0:0.37737,G:-0.0027233,TRAV:21.3,NEAR:0.75,KLM:6.05,VIS:0.37};
 const I40=[1830.4,1822.0,1809.5,1788.4,1758.5,1722.8,1693.2,1687.0,1692.4,1670.9];
+const GOBO_HALF=26.65; /* gobo disc Ø53.3 mm = raster square side; design area Ø40 mm */
 const MAIL=['nikolay.s.mikhaylov','gmail.com'];
 const $=id=>document.getElementById(id);
 const nf=(v,d)=>v.toFixed(d);
 const WALL=[44,45,48];
 
 /* ---------- state ---------- */
-const S={bf:'gobo',view:'3d',gobo:'r30',rotG:0,shT:12,shB:12,shL:16,shR:16,aT:0,aB:0,aL:0,aR:0,dim:100,surf:'wall',dist:3,pan:0,tlt:30,lens:12,ap:19,soft:0.15,mode:'light',edge:true,units:'si',eref:null};
+const S={bf:'gobo',view:'3d',gobo:'r30',rotG:0,shT:12,shB:12,shL:16,shR:16,aT:0,aB:0,aL:0,aR:0,dim:100,surf:'wall',dist:3,pan:0,tlt:30,lens:12,ap:19,soft:0.15,mode:'light',edge:true,rays:true,xyz:true,ver:'base',mount:'up',kc:false,units:'si',eref:null};
 let IMG=null;
 const GEO={wall:{dist:3,pan:0,tlt:30},ground:{dist:6,pan:0,tlt:35}};
 const SURF=()=>S.surf==='ground'?'ground':'wall';
@@ -286,8 +303,8 @@ function goboT(x,y){
       const fx=Math.abs(((x%5)+7.5)%5-2.5),fy=Math.abs(((y%5)+7.5)%5-2.5);
       return (fx<0.4||fy<0.4)?0:1;}
     case 'img':{
-      if(!IMG)return r2<=400?1:0;
-      const n=IMG.n,u=(x+20)/40*n-0.5,v=(20-y)/40*n-0.5;
+      if(!IMG||r2>400)return r2<=400&&!IMG?1:0;
+      const n=IMG.n,u=(x+GOBO_HALF)/(2*GOBO_HALF)*n-0.5,v=(GOBO_HALF-y)/(2*GOBO_HALF)*n-0.5;
       if(u<0||v<0||u>=n-1||v>=n-1)return 0;
       const i=u|0,j=v|0,a=u-i,b=v-j,d=IMG.d,k=j*n+i;
       return (d[k]*(1-a)+d[k+1]*a)*(1-b)+(d[k+n]*(1-a)+d[k+n+1]*a)*b;}
@@ -299,24 +316,59 @@ function setRot(){
   BL=[[90,'shT','aT'],[270,'shB','aB'],[180,'shL','aL'],[0,'shR','aR']].map(([b,p,a])=>{const f=(b+S[a])*Math.PI/180;return[Math.cos(f),Math.sin(f),S[p]]});
 }
 function bladeAt(x,y){for(let i=0;i<4;i++){const b=BL[i];if(x*b[0]+y*b[1]>b[2])return true}return false}
-function mask(x,y){
-  if(S.bf==='shutter'){if(x*x+y*y>400)return 0;return bladeAt(x,y)?0:1}
+/* keystone correction: the gate point is traced to the surface, and the design is read in undistorted surface coordinates */
+let KC=null;
+function gate2surf(g,gx,gy){const{w,e1,e2,F,s}=g;const d0=w[0]+gx/s*e1[0]+gy/s*e2[0],d1=w[1]+gx/s*e1[1]+gy/s*e2[1],d2=w[2]+gx/s*e1[2]+gy/s*e2[2];if(d2>=-1e-6)return null;const t=-F[2]/d2;return[F[0]+t*d0,F[1]+t*d1]}
+function surf2gate(g,u,v){const{w,e1,e2,F,s}=g;const dx=u-F[0],dy=v-F[1],dz=-F[2],dw=dx*w[0]+dy*w[1]+dz*w[2];if(dw<=1e-9)return null;return[s*(dx*e1[0]+dy*e1[1]+dz*e1[2])/dw,s*(dx*e2[0]+dy*e2[1]+dz*e2[2])/dw]}
+function designR(){return S.gobo==='r30'?15:20}
+function setKC(g){
+  KC=null;if(!(S.kc&&S.bf==='gobo')||!g||g.ca<=0.035)return;
+  let k=g.s/g.L,fit=1;
+  for(let it=0;it<3;it++){let mx=0;const Rd=designR();
+    for(let i=0;i<72;i++){const a=i/72*2*Math.PI,dx=Rd*Math.cos(a),dy=Rd*Math.sin(a);
+      const q=surf2gate(g,dx/k,dy/k);const r=q?Math.hypot(q[0],q[1]):99;if(r>mx)mx=r}
+    if(mx<=19.8)break;const f=19.8/mx;k/=f;fit*=f}
+  KC={g,k,fit};
+}
+/* physMask: the real gate, seen from behind the fixture, x to the right, y toward the fixture top.
+   The projection lens turns the image 180°, so a gate point (x,y) lands at (-x,-y) in the projection frame. */
+function physMask(x,y){
+  if(x*x+y*y>400&&(S.bf==='shutter'||KC))return 0;
+  if(S.bf==='shutter')return bladeAt(x,y)?0:1;
+  if(KC){const p=gate2surf(KC.g,-x,-y);if(!p)return 0;const dx=p[0]*KC.k,dy=p[1]*KC.k;return goboT(dx*cG+dy*sG,-dx*sG+dy*cG)}
   return goboT(x*cG+y*sG,-x*sG+y*cG);
 }
+function mask(x,y){return physMask(-x,-y)}
 const OFF=[];for(let i=0;i<32;i++){const r=Math.sqrt((i+.5)/32),a=i*2.39996;OFF.push([r*Math.cos(a),r*Math.sin(a)])}
 const ROFF=1/OFF.length;
-function goboRmax(){return S.bf==='shutter'?20:S.gobo==='r30'?15:S.gobo==='img'?28.3:20}
+function goboRmax(){return S.bf==='shutter'||KC?20:S.gobo==='r30'?15:S.gobo==='img'?20:20}
 
+/* ---------- real fixture geometry (model in mm, origin at the centre of the base face) ----------
+   Neutral pose: base axis +Y, beam +Y, tilt axis X through the pivot, head axis offset toward +Z. */
+const RIG={P:[0,104.8,18.8],G:[0,331,135.9],FRONT:461};
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],crs=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const nrm=a=>{const l=Math.hypot(...a);return l<1e-9?null:a.map(v=>v/l)},add=(a,b,k=1)=>a.map((v,i)=>v+k*b[i]);
+function rigFrame(w){
+  const U=S.surf==='ground'?[0,0,1]:[0,1,0],hor=nrm(add(w,U,-dot(w,U)));
+  const side=hor||nrm(crs(U,[1,0,0]))||[1,0,0];
+  const n=S.ver==='flange'||S.mount==='wall'?side:S.mount==='down'?U.map(v=>-v):U;
+  const c=Math.max(-1,Math.min(1,dot(n,w))),th=Math.acos(c);
+  const t=nrm(add(w,n,-c))||nrm(crs(n,[0,0,1]))||nrm(crs(n,[1,0,0]));
+  const Xm=crs(t,n),Ym=n,Zm=t.map(v=>-v);
+  /* model point after tilt (about X through the pivot by -θ), then to world, in metres */
+  const toW=p=>{const P=RIG.P,dy=p[1]-P[1],dz=p[2]-P[2],cs=Math.cos(th),sn=Math.sin(th);
+    const q=[p[0],P[1]+dy*cs+dz*sn,P[2]-dy*sn+dz*cs];return[0,1,2].map(i=>(Xm[i]*q[0]+Ym[i]*q[1]+Zm[i]*q[2])/1000)};
+  const Zh=add(n.map(v=>v*Math.sin(th)),t,-Math.cos(th));
+  return{n,t,th,Xm,Ym,Zm,toW,e2:Zh,e1:crs(w,Zh),offG:toW(RIG.G)};
+}
 function geom(){
   const H=S.dist,a=S.pan*Math.PI/180,b=S.tlt*Math.PI/180,ca=Math.cos(a)*Math.cos(b);
-  const L=ca>0.035?H/ca:H/0.035;
-  const F=[L*Math.sin(a)*Math.cos(b),(S.surf==='ground'?-1:1)*L*Math.sin(b),L*Math.cos(a)*Math.cos(b)];
+  const dir=[Math.sin(a)*Math.cos(b),(S.surf==='ground'?-1:1)*Math.sin(b),Math.cos(a)*Math.cos(b)];
+  const w=dir.map(v=>-v),rig=rigFrame(w);
+  const L=Math.max((H+rig.offG[2])/Math.max(ca,0.035),0.05);
+  const F=dir.map(v=>v*L),M=add(F,rig.offG,-1);
   const t=Math.acos(Math.max(-1,Math.min(1,ca)));
-  const w=[-F[0]/L,-F[1]/L,-F[2]/L];
-  let e1=[-w[2],0,w[0]];
-  let n1=Math.hypot(...e1);if(n1<1e-6){e1=[1,0,0];n1=1}e1=e1.map(v=>v/n1);
-  const e2=[e1[1]*w[2]-e1[2]*w[1],e1[2]*w[0]-e1[0]*w[2],e1[0]*w[1]-e1[1]*w[0]];
-  return{F,w,e1,e2,L,H,ca,df:dfOf(S.lens),Vf:vOf(S.lens),x:S.lens,s:sOfX(S.lens),theta:t};
+  return{F,M,rig,w,e1:rig.e1,e2:rig.e2,L,H,ca,tiltDeg:rig.th*57.2958,df:dfOf(S.lens),Vf:vOf(S.lens),x:S.lens,s:sOfX(S.lens),theta:t};
 }
 
 /* ---------- per-pixel render on the surface ---------- */
@@ -329,7 +381,7 @@ function render(N){
   const gg=geom(),gw=$('geoWarn');
   if(gg.ca<=0.035){gw.hidden=false;gw.textContent=gg.ca<=0?`The fixture aims away from the ${SURF()}, so the beam does not reach it. Reduce the angles.`:`The beam grazes the ${SURF()} (incidence above 88°), so the result is unreliable. Reduce the angles.`;return}
   gw.hidden=true;
-  setRot();
+  setRot();setKC(gg);
   const g=gg,{F,w,e1,e2,s}=g;
   const Rm=goboRmax()+3;
   let umin=0,umax=0,vmin=0,vmax=0;
@@ -371,7 +423,8 @@ function render(N){
   const mc=(()=>{let m=0;const R=Math.sqrt(R0*R0+(s*Ar*Math.abs(vWall(g.L)-Vf)/1000)**2);for(const o of OFF)m+=mask(R*o[0],R*o[1]);return m*ROFF})();
   const Eaim=field(0)*k2*mc*Math.cos(g.theta)/(g.L*g.L);
   if(S.eref===null&&N===NFULL)S.eref=Math.max(Emax,1e-3);
-  lastStats={g,N,U0,V1,pix,half,E,Emax,Eaim,cnt,Eavg:cnt?Es/cnt:0,Ucore:cc?Ecmin/(Ec/cc):0,area:cnt*pix*pix,flux,bu0,bu1,bv0,bv1,rdMin:cnt?rdMin:0,rdMax:cnt?rdMax:0};
+  const ccu=cnt?(bu0+bu1)/2:0,ccv=cnt?(bv0+bv1)/2:0;
+  lastStats={ccu,ccv,g,N,U0,V1,pix,half,E,Emax,Eaim,cnt,Eavg:cnt?Es/cnt:0,Ucore:cc?Ecmin/(Ec/cc):0,area:cnt*pix*pix,flux,bu0,bu1,bv0,bv1,rdMin:cnt?rdMin:0,rdMax:cnt?rdMax:0};
   paint(E,MB,N);
   composeTex();
   show2d();
@@ -465,13 +518,18 @@ function init3d(){
   const beam=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshBasicMaterial({color:0xffc98a,transparent:true,opacity:0.07,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));world.add(beam);
   const rays=new THREE.LineSegments(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({color:0xf2b33d,transparent:true,opacity:0.35}));world.add(rays);
   const axis=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineDashedMaterial({color:0xeceae6,dashSize:0.1,gapSize:0.08,transparent:true,opacity:0.5}));world.add(axis);
-  const body=new THREE.Group();
-  const mat=new THREE.MeshBasicMaterial({color:0x6a6c70}),mat2=new THREE.MeshBasicMaterial({color:0x9a9c9f});
-  const cyl=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.26,24),mat);cyl.rotation.x=Math.PI/2;cyl.position.z=-0.13;body.add(cyl);
-  const lensR=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.02,24),mat2);lensR.rotation.x=Math.PI/2;lensR.position.z=0.005;body.add(lensR);
-  world.add(body);
+  scene.add(new THREE.HemisphereLight(0xffffff,0x3a3b3f,0.9));const sun=new THREE.DirectionalLight(0xffffff,0.6);sun.position.set(1,2,1.5);scene.add(sun);
+  const geo=part=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(MODEL[part].p.map(v=>v/1000),3));g.setIndex(MODEL[part].i);g.computeVertexNormals();return g};
+  const mBody=new THREE.MeshLambertMaterial({color:0x8d8f94,flatShading:true}),mMount=new THREE.MeshLambertMaterial({color:0x6b6d72,flatShading:true});
+  const body=new THREE.Group(),pivot=new THREE.Group();pivot.position.set(RIG.P[0]/1000,RIG.P[1]/1000,RIG.P[2]/1000);
+  const head=new THREE.Mesh(geo('body'),mBody);head.position.set(-RIG.P[0]/1000,-RIG.P[1]/1000,-RIG.P[2]/1000);pivot.add(head);
+  const base=new THREE.Mesh(geo('base'),mMount),bracket=new THREE.Mesh(geo('bracket'),mMount);
+  const flange=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.012,0.15),mMount);flange.position.y=0.006;
+  body.add(base,bracket,pivot,flange);const mount=base;
+  world.add(body);Object.assign(body.userData,{pivot,base,flange});
   const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.06,1,16),new THREE.MeshBasicMaterial({color:0x55575b}));pole.rotation.x=Math.PI/2;world.add(pole);
-  T3={r,scene,cam,ctl,world,wallBase,patch,ctex,floor,beam,rays,axis,body,pole,scale:null,surf:null,ray:new THREE.Raycaster()};
+  const dims=new THREE.Group();world.add(dims);
+  T3={dims,r,scene,cam,ctl,world,wallBase,patch,ctex,floor,beam,rays,axis,body,pole,scale:null,surf:null,ray:new THREE.Raycaster()};
   r.domElement.addEventListener('dblclick',()=>{T3.scale=null;update3d()});
   const ro=new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()});ro.observe(host);
   (function loop(){requestAnimationFrame(loop);if(S.view!=='3d')return;ctl.update();r.render(scene,cam)})();
@@ -487,28 +545,61 @@ function update3d(){
   T3.scene.remove(T3.floor);
   if(gnd){const ext=Math.max(wb,Math.hypot(g.F[0]-cu,g.F[1]-cvv)*2+wb*0.6);T3.wallBase.scale.set(ext,ext,1);T3.wallBase.position.set((cu+g.F[0])/2,(cvv+g.F[1])/2,0);
     T3.floor=new THREE.GridHelper(Math.ceil(ext),Math.ceil(ext),0x4a4b4f,0x3a3b3f);T3.floor.position.set((cu+g.F[0])/2,0.0004,-(cvv+g.F[1])/2);T3.scene.add(T3.floor);
-    T3.pole.visible=true;T3.pole.position.set(g.F[0],g.F[1],g.F[2]/2);T3.pole.scale.set(Math.max(1,g.L/8),g.F[2],Math.max(1,g.L/8));}
+    const fl=S.ver==='flange',up=!fl&&S.mount==='up';T3.pole.visible=fl||up;
+    if(fl){const pc=add(g.M,g.rig.n,-0.065),top=g.M[2]+0.25;T3.pole.position.set(pc[0],pc[1],top/2);T3.pole.scale.set(1.3,top,1.3)}
+    else if(up){T3.pole.position.set(g.M[0],g.M[1],g.M[2]/2);T3.pole.scale.set(1.3,g.M[2],1.3)}}
   else{const floorY=Math.min(cvv-wb/2,g.F[1]-sceneScale*0.35);
     T3.floor=new THREE.GridHelper(Math.ceil(wb),Math.ceil(wb),0x4a4b4f,0x353639);T3.floor.position.set(cu,floorY,Math.ceil(wb)/2);T3.scene.add(T3.floor);
     T3.wallBase.scale.y=(cvv+wb/2-floorY);T3.wallBase.position.y=(cvv+wb/2+floorY)/2;T3.pole.visible=false;}
   const F=new V(...g.F),pts=beamOutline(g),pos=[],lin=[];
-  for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length];pos.push(...g.F,...a,...b);if(i%10===0)lin.push(...g.F,...a)}
+  /* draw the beam from the front glass: each ray starts where it leaves the lens tube */
+  const df=(RIG.FRONT-RIG.G[1])/1000,st0=pts.map(p=>{const d=Math.hypot(p[0]-g.F[0],p[1]-g.F[1],p[2]-g.F[2]);return g.F.map((v,i)=>v+(p[i]-v)*df/d)});
+  for(let i=0;i<pts.length;i++){const j=(i+1)%pts.length,a=pts[i],b=pts[j],sa=st0[i],sb=st0[j];pos.push(...sa,...a,...b,...sa,...b,...sb);if(i%10===0)lin.push(...sa,...a)}
   T3.beam.geometry.dispose();T3.beam.geometry=new THREE.BufferGeometry();T3.beam.geometry.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
   T3.rays.geometry.dispose();T3.rays.geometry=new THREE.BufferGeometry();T3.rays.geometry.setAttribute('position',new THREE.Float32BufferAttribute(lin,3));
-  T3.axis.geometry.dispose();T3.axis.geometry=new THREE.BufferGeometry().setFromPoints([F,new V(0,0,0.001)]);T3.axis.computeLineDistances();
+  T3.axis.geometry.dispose();T3.axis.geometry=new THREE.BufferGeometry().setFromPoints([new V(...g.rig.toW([0,RIG.FRONT,RIG.G[2]])).add(new V(...g.M)),new V(0,0,0.001)]);T3.axis.computeLineDistances();
   T3.axis.material.dashSize=g.L/40;T3.axis.material.gapSize=g.L/60;
-  const k=Math.max(1,g.L/6);T3.body.scale.set(k,k,k);T3.body.position.copy(F);T3.body.lookAt(0,0,0);
-  const target=T3.world.localToWorld(new V(cu,cvv,0)),Fw=T3.world.localToWorld(F.clone());
+  {const B=T3.body,u=B.userData,r=g.rig;B.position.set(...g.M);
+   B.setRotationFromMatrix(new THREE.Matrix4().makeBasis(new V(...r.Xm),new V(...r.Ym),new V(...r.Zm)));
+   u.pivot.rotation.set(-r.th,0,0);u.base.visible=S.ver==='base';u.flange.visible=S.ver==='flange';}
+  drawDims(g,st,sceneScale);
+  const target=T3.world.localToWorld(gnd?new V(cu,cvv,0):new V(cu*0.7+g.F[0]*0.3,cvv*0.7+g.F[1]*0.3,0)),Fw=T3.world.localToWorld(F.clone());
   if(T3.scale===null){
     const fd=Fw.clone().sub(target).normalize();let side=new V().crossVectors(fd,new V(0,1,0));if(side.length()<1e-3)side.set(1,0,0);side.normalize().multiplyScalar(0.45);
     const dir=fd.clone().add(side).add(gnd?new V(0,0.35,0):new V(0,0.12,0.35)).normalize();
-    T3.cam.position.copy(gnd?target.clone().lerp(Fw,0.35):target).add(dir.multiplyScalar(sceneScale*(gnd?1.9:1.55)));
+    const foot=T3.world.localToWorld(new V(g.F[0],g.F[1],0));T3.cam.position.copy(gnd?target.clone().lerp(Fw,0.35):target.clone().lerp(foot,0.3)).add(dir.multiplyScalar(sceneScale*(gnd?1.9:1.85)));
   }else{
     const o=T3.cam.position.clone().sub(T3.ctl.target).multiplyScalar(sceneScale/T3.scale);
     T3.cam.position.copy(target).add(o);
   }
   T3.cam.near=sceneScale/500;T3.cam.far=sceneScale*40;T3.cam.updateProjectionMatrix();
   T3.ctl.target.copy(target);T3.scale=sceneScale;
+}
+/* X Y Z offsets from the fixture to the spot centre, drawn as a chain of orthogonal legs */
+function dimLabel(text,h){
+  const c=document.createElement('canvas'),x=c.getContext('2d'),F='600 44px "Archivo",Arial,sans-serif';x.font=F;
+  const w=Math.ceil(x.measureText(text).width)+36;c.width=w;c.height=68;x.font=F;
+  x.fillStyle='rgba(34,35,37,0.88)';x.fillRect(0,0,w,68);x.strokeStyle='#4A4B4F';x.lineWidth=3;x.strokeRect(1.5,1.5,w-3,65);
+  x.fillStyle='#ECEAE6';x.textBaseline='middle';x.fillText(text,18,36);
+  const t=new THREE.CanvasTexture(c);t.anisotropy=4;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthTest:false,transparent:true}));sp.scale.set(h*w/68,h,1);sp.renderOrder=10;return sp;
+}
+function drawDims(g,st,sc){
+  const D=T3.dims;for(const o of[...D.children]){D.remove(o);o.geometry&&o.geometry.dispose();if(o.material){o.material.map&&o.material.map.dispose();o.material.dispose()}}
+  D.visible=S.xyz&&st.cnt>0;if(!D.visible)return;
+  const V=THREE.Vector3,gd=S.surf==='ground',z0=sc*0.002;
+  const M=g.M,P0=new V(M[0],M[1],M[2]),P1=new V(M[0],M[1],z0),P2=new V(st.ccu,M[1],z0),P3=new V(st.ccu,st.ccv,z0);
+  const legs=[[P0,P1,'Z',gd?'down':'to wall',M[2]],[P1,P2,'X',gd?'sideways':'horizontal',st.ccu-M[0]],[P2,P3,'Y',gd?'forward':'vertical',st.ccv-M[1]]];
+  const mat=new THREE.LineDashedMaterial({color:0xeceae6,dashSize:sc/60,gapSize:sc/90,transparent:true,opacity:0.85,depthTest:false});
+  const h=sc*0.034;
+  for(const [a,b,ax,,v] of legs){
+    if(a.distanceTo(b)<0.005)continue;
+    const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints([a,b]),mat);l.computeLineDistances();l.renderOrder=9;D.add(l);
+    for(const p of[a,b]){const m=new THREE.Mesh(new THREE.SphereGeometry(sc*0.006,10,8),new THREE.MeshBasicMaterial({color:0xeceae6,depthTest:false}));m.position.copy(p);m.renderOrder=9;D.add(m)}
+    const sg=ax==='Z'?'':(Math.abs(v)<0.005?'':v>0?'+':'−');
+    const lb=dimLabel(`${ax} ${sg}${fmtL(Math.abs(v))}`,h);lb.position.copy(a).add(b).multiplyScalar(0.5);D.add(lb);
+  }
+  const c=new THREE.Mesh(new THREE.SphereGeometry(sc*0.009,12,10),new THREE.MeshBasicMaterial({color:0xf2b33d,depthTest:false}));c.position.copy(P3);c.renderOrder=9;D.add(c);
 }
 function applyView(){
   const is3=S.view==='3d';$('three').hidden=!is3;$('wall').hidden=is3;
@@ -549,12 +640,16 @@ function stats(){
     ['Uniformity, core',st.Ucore?nf(st.Ucore,2)+' Emin/Eavg':'—'],
     [`Flux on ${SURF()}`,nf(st.flux,0)+' lm'],
     ['Throw to aim point',fmtL(g.L)],
+    ['Yoke tilt',nf(g.tiltDeg,0)+'°'],
     ['Incidence',nf(g.theta*57.2958,1)+'°'],
     ['Beam angle, visible',nf(ang,1)+'°'],
     ['Sharp at',sharp],
+    ...(()=>{const gd=S.surf==='ground',dx=st.ccu-g.M[0],dy=st.ccv-g.M[1],dz=-g.M[2],sg=v=>(Math.abs(v)<0.005?'':v>0?'+':'−')+fmtL(Math.abs(v));
+      return gd?[['Mount → spot centre, X (sideways)',sg(dx)],['Mount → spot centre, Y (forward)',sg(dy)],['Mount → spot centre, Z (down)',fmtL(-dz)]]
+               :[['Mount → spot centre, X (horizontal)',sg(dx)],['Mount → spot centre, Y (vertical)',sg(dy)],['Mount → spot centre, Z (to wall)',fmtL(-dz)]]})(),
     ['Edge blur, approximate',st.cnt?`${fmtMM(st.rdMin*2).split(' ')[0]}–${fmtMM(st.rdMax*2)}`:'—'],
   ];
-  $('stats').innerHTML=lastRows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
+  $('stats').innerHTML=lastRows.filter(([k])=>!k.startsWith('Mount →')).map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
   schematic(g,ang);
   $('lensNote').textContent=`${g.df<0?'Not sharp at any distance':'Sharp at '+sharp}. Throw to aim point ${fmtL(g.L)}. Zero is the lens fully toward the gobo; ∞ at 11.0 mm, end stop 21.3 mm (sharp at ${fmtL(0.75)}).`;
   const w=$('focWarn');
@@ -620,7 +715,7 @@ function buildPresets(){
 }
 function syncVals(){
   const gd=S.surf==='ground';
-  $('distLbl').textContent=gd?'Mounting height':'Distance to wall';$('panLbl').textContent=gd?'Side tilt':'Horizontal angle';$('tltLbl').textContent=gd?'Tilt from vertical':'Vertical angle';
+  $('distLbl').textContent=gd?'Mounting height':'Mount to wall';$('panLbl').textContent=gd?'Side tilt':'Horizontal angle';$('tltLbl').textContent=gd?'Tilt from vertical':'Vertical angle';
   $('geoNote').textContent=gd?'Fixture on a pole aiming down. Height is from the ground to the fixture; tilt is from straight down toward the aim point; side tilt is sideways from that plane. The throw follows from the angles.':'Horizontal +: fixture to the right of the aim point; vertical +: fixture above it. Distance is the fixed perpendicular distance from the fixture to the wall; the throw follows from the angles.';
   $('v2dBtn').textContent=gd?'Ground 2D':'Wall 2D';
   $('distU').textContent=lenU();$('distNum').min=nf(toL(DMIN),1);$('distNum').max=nf(toL(DMAX),0);$('distNum').step=imp()?'0.1':'0.05';
@@ -630,15 +725,18 @@ function syncVals(){
   if(document.activeElement!==$('dimNum'))$('dimNum').value=S.dim;$('dim').value=S.dim;
   $('rotGv').textContent=S.rotG+'°';$('rotG').value=S.rotG;
   for(const p of['T','B','L','R']){$('sh'+p).value=S['sh'+p];$('a'+p).value=S['a'+p];$('sh'+p+'v').textContent=(S['sh'+p]>=20?'out':nf(S['sh'+p],1)+' mm')+' · '+S['a'+p]+'°'}
-  $('fsGobo').disabled=S.bf!=='gobo';$('fsShut').disabled=S.bf!=='shutter';$('imgBox').hidden=S.gobo!=='img';
-  $('gateNote').textContent=S.bf==='gobo'?`Gobo in the gate, shown as it lands on the ${SURF()}; the physical gobo is inverted. Shutters are not used with a gobo.`:`Open Ø40 mm gate with shutters, viewed from the ${SURF()} side.`;
-  for(const id of['viewSeg','modeSeg','unitSeg','surfSeg','bfSeg','goboSeg']){const key={viewSeg:'view',modeSeg:'mode',unitSeg:'units',surfSeg:'surf',bfSeg:'bf',goboSeg:'gobo'}[id];$(id).querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===S[key]))}
+  $('fsGobo').disabled=S.bf!=='gobo';$('kcChk').checked=S.kc;$('fsShut').disabled=S.bf!=='shutter';$('imgBox').hidden=S.gobo!=='img';
+  $('verNote').textContent=(S.ver==='flange'?'Flange version on the side of a vertical pole, facing the aim point.':S.mount==='up'?'Base on a floor, plinth or the top of a pole.':S.mount==='down'?'Base on a ceiling.':'Base on a vertical surface facing the aim point.')+` The distance${S.surf==='ground'?' and height are':' is'} measured to the mounting face.`;
+  $('mountSeg').hidden=S.ver==='flange';$('mountSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===S.mount));
+  $('gateNote').textContent=(S.bf==='gobo'?'Physical gobo':'Physical gate with shutters')+' seen from behind the fixture, fixture top at the top. The lens turns the image 180°, so on the '+SURF()+' it appears mirrored vertically and horizontally.'+(S.bf==='gobo'?' Shutters are not used with a gobo.':'');
+  for(const id of['viewSeg','modeSeg','unitSeg','surfSeg','bfSeg','goboSeg','verSeg']){const key={viewSeg:'view',modeSeg:'mode',unitSeg:'units',surfSeg:'surf',bfSeg:'bf',goboSeg:'gobo',verSeg:'ver'}[id];$(id).querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===S[key]))}
   buildPresets();
 }
 function num(v,fb){v=parseFloat(String(v).replace(',','.'));return isFinite(v)?v:fb}
 function bindRange(id,key){$(id).addEventListener('input',e=>{S[key]=parseFloat(e.target.value);syncVals();schedule()})}
 ['rotG','shT','shB','shL','shR','aT','aB','aL','aR','pan','tlt','lens','dim'].forEach(k=>bindRange(k,k));
-['rotG','shT','shB','shL','shR','aT','aB','aL','aR'].forEach(id=>$(id).addEventListener('input',drawGobo));
+['rotG','shT','shB','shL','shR','aT','aB','aL','aR','dist','pan','tlt','lens'].forEach(id=>$(id).addEventListener('input',()=>{if(S.kc||!['dist','pan','tlt','lens'].includes(id))drawGobo()}));
+for(const id of['distNum','panNum','tltNum','lensNum'])$(id).addEventListener('change',()=>{if(S.kc)drawGobo()});
 $('dist').addEventListener('input',e=>{let d=t2d(+e.target.value);d=d<5?Math.round(d*20)/20:d<15?Math.round(d*10)/10:Math.round(d*2)/2;S.dist=d;syncVals();schedule()});
 $('distNum').addEventListener('change',e=>{S.dist=Math.min(DMAX,Math.max(DMIN,fromL(num(e.target.value,toL(S.dist)))));syncVals();schedule()});
 for(const k of['pan','tlt'])$(k+'Num').addEventListener('change',e=>{S[k]=Math.max(-180,Math.min(180,Math.round(num(e.target.value,S[k]))));syncVals();schedule()});
@@ -649,9 +747,13 @@ $('autoFocus').addEventListener('click',()=>{focusAim();syncVals();schedule()});
 $('autoEx').addEventListener('click',()=>{if(lastStats){S.eref=Math.max(lastStats.Emax,1e-3);schedule()}});
 function bindSeg(id,key,cb){$(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;const prev=S[key];S[key]=b.dataset.v;cb&&cb(prev);syncVals();schedule()})}
 bindSeg('viewSeg','view',applyView);bindSeg('modeSeg','mode');bindSeg('unitSeg','units');
-bindSeg('surfSeg','surf',prev=>{if(prev===S.surf)return;GEO[prev]={dist:S.dist,pan:S.pan,tlt:S.tlt};Object.assign(S,GEO[S.surf]);T3&&(T3.scale=null);focusAim()});
-bindSeg('bfSeg','bf',drawGobo);bindSeg('goboSeg','gobo',()=>{drawGobo();if(S.gobo==='img'&&!IMG)$('imgFile').click()});
+bindSeg('surfSeg','surf',prev=>{if(prev===S.surf)return;S.ver=S.surf==='ground'?'flange':'base';S.mount='up';GEO[prev]={dist:S.dist,pan:S.pan,tlt:S.tlt};Object.assign(S,GEO[S.surf]);T3&&(T3.scale=null);focusAim()});
+bindSeg('bfSeg','bf',drawGobo);
+bindSeg('verSeg','ver',()=>{T3&&(T3.scale=null);drawGobo()});bindSeg('mountSeg','mount',()=>{T3&&(T3.scale=null);drawGobo()});
+$('kcChk').addEventListener('change',e=>{S.kc=e.target.checked;drawGobo();schedule()});bindSeg('goboSeg','gobo',()=>{drawGobo();if(S.gobo==='img'&&!IMG)$('imgFile').click()});
 $('showEdge').addEventListener('change',e=>{S.edge=e.target.checked;schedule()});
+$('showXYZ').addEventListener('change',e=>{S.xyz=e.target.checked;schedule()});
+$('showRays').addEventListener('change',e=>{S.rays=e.target.checked;if(T3){T3.beam.visible=T3.rays.visible=T3.axis.visible=S.rays}});
 
 /* ---------- gobo image: file picker and drop anywhere ---------- */
 function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,3200)}
@@ -660,7 +762,7 @@ function loadImg(file){
   const fr=new FileReader();
   fr.onload=()=>{const im=new Image();im.onerror=()=>toast(`Could not read ${file.name}. The image could not be decoded.`);
     im.onload=()=>{
-      const n=256,c=document.createElement('canvas');c.width=c.height=n;const x=c.getContext('2d');x.fillStyle='#000';x.fillRect(0,0,n,n);
+      const n=1024,c=document.createElement('canvas');c.width=c.height=n;const x=c.getContext('2d');x.fillStyle='#000';x.fillRect(0,0,n,n);
       const k=Math.min(n/im.width,n/im.height),w=im.width*k,h=im.height*k;x.drawImage(im,(n-w)/2,(n-h)/2,w,h);
       const p=x.getImageData(0,0,n,n).data,d=new Float32Array(n*n),inv=$('imgInv').checked;
       for(let i=0;i<n*n;i++){const l=(0.2126*p[i*4]+0.7152*p[i*4+1]+0.0722*p[i*4+2])/255*(p[i*4+3]/255);d[i]=inv?1-l:l}
@@ -679,12 +781,14 @@ document.addEventListener('dragleave',e=>{if(!hasFiles(e))return;dragN=Math.max(
 document.addEventListener('drop',e=>{if(!hasFiles(e))return;e.preventDefault();dragN=0;$('drop').hidden=true;const f=e.dataTransfer.files[0];if(f)loadImg(f)});
 
 function drawGobo(){
-  setRot();
+  setRot();setKC(geom());
+  const kn=$('kcNote');kn.hidden=!KC;$('kcCopy').textContent=KC?'Copy pre-distorted gobo for print':'Copy gobo for print';
+  if(KC)kn.textContent=KC.fit<0.999?`The corrected gobo would not fit the Ø40 mm gate, so the image is scaled to ${Math.round(KC.fit*100)}% of the uncorrected size at the aim point.`:'The gate preview now shows the pre-distorted gobo to order. Rotation is applied in the projected image.';
   const c=$('goboCv'),x=c.getContext('2d'),n=c.width,im=x.createImageData(n,n),d=im.data,R=22;
   for(let j=0;j<n;j++)for(let i=0;i<n;i++){const gx=(i+.5)/n*2*R-R,gy=R-(j+.5)/n*2*R,k=(j*n+i)*4;
     let blade=false,t;
     if(S.bf==='shutter'){const ins=gx*gx+gy*gy<=400;blade=ins&&bladeAt(gx,gy);t=ins?1:0}
-    else t=goboT(gx*cG+gy*sG,-gx*sG+gy*cG);
+    else t=physMask(gx,gy);
     if(blade){d[k]=74;d[k+1]=75;d[k+2]=79}else{d[k]=20+235*t;d[k+1]=20+196*t;d[k+2]=22+135*t}d[k+3]=255}
   x.putImageData(im,0,0);
 }
@@ -705,9 +809,9 @@ function fitText(c,text,x,y,maxW,size,weight,color,lines=2,lh=1.3){
 async function buildShot(){
   try{await document.fonts.ready}catch(e){}
   const g=lastStats.g,gd=S.surf==='ground',K=2,W=1400,pad=24,F='"Archivo","Helvetica Neue",Arial,sans-serif';
-  const setup=[['Surface',gd?'Ground, fixture on a pole':'Wall'],[gd?'Mounting height':'Distance to wall',fmtL(S.dist)],[gd?'Side tilt':'Horizontal angle',S.pan+'°'],[gd?'Tilt from vertical':'Vertical angle',S.tlt+'°'],['Beam shaping',goboLabel()]];
+  const setup=[['Surface',gd?'Ground, fixture on a pole':'Wall'],['Fixture',S.ver==='flange'?'flange, on a pole':`base, on ${{up:'floor',down:'ceiling',wall:'wall'}[S.mount]}`],[gd?'Mounting height':'Distance to wall',fmtL(S.dist)],[gd?'Side tilt':'Horizontal angle',S.pan+'°'],[gd?'Tilt from vertical':'Vertical angle',S.tlt+'°'],['Beam shaping',goboLabel()]];
   if(S.bf==='shutter')for(const [n,p] of[['Top','T'],['Bottom','B'],['Left','L'],['Right','R']])setup.push([`Shutter ${n.toLowerCase()}`,(S['sh'+p]>=20?'out':nf(S['sh'+p],1)+' mm')+' · '+S['a'+p]+'°']);
-  else setup.push(['Gobo rotation',S.rotG+'°']);
+  else{setup.push(['Gobo rotation',S.rotG+'°']);setup.push(['Keystone correction',KC?(KC.fit<0.999?`on, scaled ${Math.round(KC.fit*100)}%`:'on'):'off'])}
   setup.push(['Lens position',nf(S.lens,2)+' mm'],['Dimmer',S.dim+'%']);
   const rows=Math.max(setup.length,lastRows.length),rowH=21,blockH=Math.max(170,34+rows*rowH);
   const headH=64,viewH=720,footH=46,H=pad+headH+viewH+20+blockH+footH;
@@ -740,7 +844,7 @@ async function buildShot(){
 $('shotBtn').addEventListener('click',()=>{
   if(!lastStats)return;
   const cP=buildShot();
-  const fallback=()=>cP.then(c=>{const u=c.toDataURL('image/png');$('shotImg').src=u;const a=$('shotDl');a.href=u;a.hidden=window.self!==window.top;$('shotDlg').showModal()});
+  const fallback=()=>cP.then(c=>{$('shotTitle').textContent='Screenshot';$('shotDl').download='framer-projection.png';const u=c.toDataURL('image/png');$('shotImg').src=u;const a=$('shotDl');a.href=u;a.hidden=window.self!==window.top;$('shotDlg').showModal()});
   try{
     if(!navigator.clipboard||typeof ClipboardItem==='undefined')throw 0;
     const blob=cP.then(c=>new Promise(res=>c.toBlob(res,'image/png')));
@@ -748,6 +852,22 @@ $('shotBtn').addEventListener('click',()=>{
   }catch(e){fallback()}
 });
 $('shotClose').addEventListener('click',()=>$('shotDlg').close());
+const GOBO_PX=2132; /* 53.3 mm at 40 px/mm ≈ 1016 dpi */
+function buildGobo(){
+  const N=GOBO_PX,c=document.createElement('canvas');c.width=c.height=N;const x=c.getContext('2d');
+  const im=x.createImageData(N,N),d=im.data,h=GOBO_HALF;
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){const gx=(i+.5)/N*2*h-h,gy=h-(j+.5)/N*2*h,k=(j*N+i)*4;
+    const t=gx*gx+gy*gy<=400?physMask(gx,gy):0,v=Math.round(255*t);
+    d[k]=d[k+1]=d[k+2]=v;d[k+3]=255}
+  x.putImageData(im,0,0);
+  return c;
+}
+$('kcCopy').addEventListener('click',()=>{
+  if(S.bf!=='gobo')return;const c=buildGobo();
+  const fallback=()=>{const u=c.toDataURL('image/png');$('shotTitle').textContent=KC?'Pre-distorted gobo':'Gobo for print';$('shotImg').src=u;const a=$('shotDl');a.href=u;a.download='pre-distorted-gobo.png';a.hidden=window.self!==window.top;$('shotDlg').showModal()};
+  try{if(!navigator.clipboard||typeof ClipboardItem==='undefined')throw 0;
+    navigator.clipboard.write([new ClipboardItem({'image/png':new Promise(r=>c.toBlob(r,'image/png'))})]).then(()=>toast(`${KC?'Pre-distorted gobo':'Gobo'} copied: ${GOBO_PX}×${GOBO_PX} px = 53.3 mm square, design in the central Ø40 mm, seen from behind the fixture with its top at the top`)).catch(fallback)}catch(e){fallback()}
+});
 
 /* ---------- About ---------- */
 $('aboutBtn').addEventListener('click',()=>{const a=$('mailA'),m=MAIL[0]+'@'+MAIL[1];a.textContent=m;a.href='mailto:'+m+'?subject=Framer%20Projection%20Lab';$('about').showModal()});
