@@ -348,11 +348,11 @@ function goboRmax(){return S.bf==='shutter'||KC?20:S.gobo==='r30'?15:S.gobo==='i
 const RIG={P:[0,104.8,18.8],G:[0,331,135.9],FRONT:461};
 const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],crs=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
 const nrm=a=>{const l=Math.hypot(...a);return l<1e-9?null:a.map(v=>v/l)},add=(a,b,k=1)=>a.map((v,i)=>v+k*b[i]);
-function rigFrame(w){
+function rigFrame(w,upright){
   /* the base (or flange) is fixed to the building: its axis n does not follow the aim.
      Vertical mounts face the target at zero horizontal angle: the wall opposite the target wall, or a pole behind the aim direction. */
   const gd=S.surf==='ground',U=gd?[0,0,1]:[0,1,0],face=gd?[0,1,0]:[0,0,-1];
-  const n=S.ver==='flange'||S.mount==='wall'?face:S.mount==='down'?U.map(v=>-v):U;
+  const n=upright?U:S.ver==='flange'||S.mount==='wall'?face:S.mount==='down'?U.map(v=>-v):U;
   const c=Math.max(-1,Math.min(1,dot(n,w))),th=Math.acos(c);
   const t=nrm(add(w,n,-c))||nrm(crs(n,[0,0,1]))||nrm(crs(n,[1,0,0]));
   const Xm=crs(t,n),Ym=n,Zm=t.map(v=>-v);
@@ -367,10 +367,12 @@ function geom(){
   const H=S.dist,a=S.pan*Math.PI/180,b=S.tlt*Math.PI/180,ca=Math.cos(a)*Math.cos(b);
   const dir=[Math.sin(a)*Math.cos(b),(S.surf==='ground'?-1:1)*Math.sin(b),Math.cos(a)*Math.cos(b)];
   const w=dir.map(v=>-v),rig=rigFrame(w);
+  /* body roll: turn of the gate about the beam compared with an upright fixture on a horizontal base; + = top turned to the left, seen from behind */
+  const up=rigFrame(w,true),e1u=up.e1,roll=Math.atan2(-dot(rig.e2,e1u),dot(rig.e2,up.e2))*57.2958;
   const L=Math.max((H+rig.offG[2])/Math.max(ca,0.035),0.05);
   const F=dir.map(v=>v*L),M=add(F,rig.offG,-1);
   const t=Math.acos(Math.max(-1,Math.min(1,ca)));
-  return{F,M,rig,w,e1:rig.e1,e2:rig.e2,L,H,ca,tiltDeg:rig.th*57.2958,panDeg:rig.pan,df:dfOf(S.lens),Vf:vOf(S.lens),x:S.lens,s:sOfX(S.lens),theta:t};
+  return{F,M,rig,w,e1:rig.e1,e2:rig.e2,L,H,ca,tiltDeg:rig.th*57.2958,rollDeg:Math.abs(roll)<0.05?0:roll,panDeg:rig.pan,df:dfOf(S.lens),Vf:vOf(S.lens),x:S.lens,s:sOfX(S.lens),theta:t};
 }
 
 /* ---------- per-pixel render on the surface ---------- */
@@ -646,6 +648,7 @@ function stats(){
     [`Flux on ${SURF()}`,nf(st.flux,0)+' lm'],
     ['Throw to aim point',fmtL(g.L)],
     ['Yoke pan / tilt',`${nf(g.panDeg,0)}° / ${nf(g.tiltDeg,0)}°`],
+    ['Body roll vs upright base',Math.abs(Math.abs(g.rollDeg)-180)<0.05?'180.0°':`${g.rollDeg>0?'+':''}${nf(g.rollDeg,1)}°`],
     ['Incidence',nf(g.theta*57.2958,1)+'°'],
     ['Beam angle, visible',nf(ang,1)+'°'],
     ['Sharp at',sharp],
