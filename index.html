@@ -159,7 +159,7 @@ a{color:var(--amber)}
   <section>
     <h2>Fixture mounting</h2>
     <div class="sbseg" role="group" aria-label="Product version" id="verSeg"><button type="button" data-v="base" aria-pressed="true">On base</button><button type="button" data-v="flange" aria-pressed="false">On flange (pole)</button></div>
-    <div class="sbseg" role="group" aria-label="Mounting surface" id="mountSeg"><button type="button" data-v="up" aria-pressed="true">Floor</button><button type="button" data-v="down" aria-pressed="false">Ceiling</button><button type="button" data-v="wall" aria-pressed="false">Wall</button></div>
+    <div class="sbseg" role="group" aria-label="Base position" id="mountSeg"><button type="button" data-v="wall" aria-pressed="false">Vertical wall</button><button type="button" data-v="up" aria-pressed="true">Horizontal</button><button type="button" data-v="down" aria-pressed="false">Upside down</button></div>
     <p class="note" id="verNote"></p>
   </section>
 
@@ -177,7 +177,7 @@ a{color:var(--amber)}
       </div>
       <label class="chk"><input type="checkbox" id="kcChk"> Keystone correction: pre-distort the gobo so the image lands undistorted (1:1)</label>
       <div class="presets" id="kcBox"><button type="button" id="kcCopy">Copy gobo for print</button></div>
-      <p class="note">Print file: square raster of the Ø53.3 mm gobo disc, 2132 px (40 px/mm). White is open, black is metal; the design stays inside the central Ø40 mm. Drawn as it sits in the gate, seen from behind the fixture with the fixture top at the top.</p>
+      <p class="note">Print file: square raster of the Ø53.3 mm gobo disc at 3200 dpi (6715 px), black and white only. White is open, black is metal; the design stays inside the central Ø40 mm. Drawn as it sits in the gate, seen from behind the fixture with the fixture top at the top.</p>
       <p class="note" id="kcNote" hidden></p>
       <div class="ctl"><div class="top"><label for="rotG">Rotation</label><span class="v" id="rotGv"></span></div><input type="range" id="rotG" min="-180" max="180" step="1" value="0"></div>
     </fieldset>
@@ -349,17 +349,19 @@ const RIG={P:[0,104.8,18.8],G:[0,331,135.9],FRONT:461};
 const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],crs=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
 const nrm=a=>{const l=Math.hypot(...a);return l<1e-9?null:a.map(v=>v/l)},add=(a,b,k=1)=>a.map((v,i)=>v+k*b[i]);
 function rigFrame(w){
-  const U=S.surf==='ground'?[0,0,1]:[0,1,0],hor=nrm(add(w,U,-dot(w,U)));
-  const side=hor||nrm(crs(U,[1,0,0]))||[1,0,0];
-  const n=S.ver==='flange'||S.mount==='wall'?side:S.mount==='down'?U.map(v=>-v):U;
+  /* the base (or flange) is fixed to the building: its axis n does not follow the aim.
+     Vertical mounts face the target at zero horizontal angle: the wall opposite the target wall, or a pole behind the aim direction. */
+  const gd=S.surf==='ground',U=gd?[0,0,1]:[0,1,0],face=gd?[0,1,0]:[0,0,-1];
+  const n=S.ver==='flange'||S.mount==='wall'?face:S.mount==='down'?U.map(v=>-v):U;
   const c=Math.max(-1,Math.min(1,dot(n,w))),th=Math.acos(c);
   const t=nrm(add(w,n,-c))||nrm(crs(n,[0,0,1]))||nrm(crs(n,[1,0,0]));
   const Xm=crs(t,n),Ym=n,Zm=t.map(v=>-v);
+  const ref=Math.abs(dot(n,U))>0.5?face:U.map(v=>-v),pan=th<1e-4?0:Math.atan2(dot(crs(ref,t),n),dot(ref,t))*57.2958;
   /* model point after tilt (about X through the pivot by -θ), then to world, in metres */
   const toW=p=>{const P=RIG.P,dy=p[1]-P[1],dz=p[2]-P[2],cs=Math.cos(th),sn=Math.sin(th);
     const q=[p[0],P[1]+dy*cs+dz*sn,P[2]-dy*sn+dz*cs];return[0,1,2].map(i=>(Xm[i]*q[0]+Ym[i]*q[1]+Zm[i]*q[2])/1000)};
   const Zh=add(n.map(v=>v*Math.sin(th)),t,-Math.cos(th));
-  return{n,t,th,Xm,Ym,Zm,toW,e2:Zh,e1:crs(w,Zh),offG:toW(RIG.G)};
+  return{n,t,th,pan,Xm,Ym,Zm,toW,e2:Zh,e1:crs(w,Zh),offG:toW(RIG.G)};
 }
 function geom(){
   const H=S.dist,a=S.pan*Math.PI/180,b=S.tlt*Math.PI/180,ca=Math.cos(a)*Math.cos(b);
@@ -368,7 +370,7 @@ function geom(){
   const L=Math.max((H+rig.offG[2])/Math.max(ca,0.035),0.05);
   const F=dir.map(v=>v*L),M=add(F,rig.offG,-1);
   const t=Math.acos(Math.max(-1,Math.min(1,ca)));
-  return{F,M,rig,w,e1:rig.e1,e2:rig.e2,L,H,ca,tiltDeg:rig.th*57.2958,df:dfOf(S.lens),Vf:vOf(S.lens),x:S.lens,s:sOfX(S.lens),theta:t};
+  return{F,M,rig,w,e1:rig.e1,e2:rig.e2,L,H,ca,tiltDeg:rig.th*57.2958,panDeg:rig.pan,df:dfOf(S.lens),Vf:vOf(S.lens),x:S.lens,s:sOfX(S.lens),theta:t};
 }
 
 /* ---------- per-pixel render on the surface ---------- */
@@ -640,7 +642,7 @@ function stats(){
     ['Uniformity, core',st.Ucore?nf(st.Ucore,2)+' Emin/Eavg':'—'],
     [`Flux on ${SURF()}`,nf(st.flux,0)+' lm'],
     ['Throw to aim point',fmtL(g.L)],
-    ['Yoke tilt',nf(g.tiltDeg,0)+'°'],
+    ['Yoke pan / tilt',`${nf(g.panDeg,0)}° / ${nf(g.tiltDeg,0)}°`],
     ['Incidence',nf(g.theta*57.2958,1)+'°'],
     ['Beam angle, visible',nf(ang,1)+'°'],
     ['Sharp at',sharp],
@@ -726,7 +728,7 @@ function syncVals(){
   $('rotGv').textContent=S.rotG+'°';$('rotG').value=S.rotG;
   for(const p of['T','B','L','R']){$('sh'+p).value=S['sh'+p];$('a'+p).value=S['a'+p];$('sh'+p+'v').textContent=(S['sh'+p]>=20?'out':nf(S['sh'+p],1)+' mm')+' · '+S['a'+p]+'°'}
   $('fsGobo').disabled=S.bf!=='gobo';$('kcChk').checked=S.kc;$('fsShut').disabled=S.bf!=='shutter';$('imgBox').hidden=S.gobo!=='img';
-  $('verNote').textContent=(S.ver==='flange'?'Flange version on the side of a vertical pole, facing the aim point.':S.mount==='up'?'Base on a floor, plinth or the top of a pole.':S.mount==='down'?'Base on a ceiling.':'Base on a vertical surface facing the aim point.')+` The distance${S.surf==='ground'?' and height are':' is'} measured to the mounting face.`;
+  $('verNote').textContent=(S.ver==='flange'?'Flange version on the side of a vertical pole, facing the aim point at zero '+(S.surf==='ground'?'side tilt':'horizontal angle')+'; the flange stays fixed and the yoke pans and tilts.':S.mount==='up'?'Base on a horizontal surface facing up: floor, plinth or the top of a pole.':S.mount==='down'?'Base on a horizontal surface upside down: ceiling or the underside of a beam.':'Base on a vertical wall parallel to the '+(S.surf==='ground'?'aim direction at zero side tilt':'target wall')+'; the base stays fixed and the yoke pans and tilts.')+` The distance${S.surf==='ground'?' and height are':' is'} measured to the mounting face.`;
   $('mountSeg').hidden=S.ver==='flange';$('mountSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===S.mount));
   $('gateNote').textContent=(S.bf==='gobo'?'Physical gobo':'Physical gate with shutters')+' seen from behind the fixture, fixture top at the top. The lens turns the image 180°, so on the '+SURF()+' it appears mirrored vertically and horizontally.'+(S.bf==='gobo'?' Shutters are not used with a gobo.':'');
   for(const id of['viewSeg','modeSeg','unitSeg','surfSeg','bfSeg','goboSeg','verSeg']){const key={viewSeg:'view',modeSeg:'mode',unitSeg:'units',surfSeg:'surf',bfSeg:'bf',goboSeg:'gobo',verSeg:'ver'}[id];$(id).querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===S[key]))}
@@ -809,7 +811,7 @@ function fitText(c,text,x,y,maxW,size,weight,color,lines=2,lh=1.3){
 async function buildShot(){
   try{await document.fonts.ready}catch(e){}
   const g=lastStats.g,gd=S.surf==='ground',K=2,W=1400,pad=24,F='"Archivo","Helvetica Neue",Arial,sans-serif';
-  const setup=[['Surface',gd?'Ground, fixture on a pole':'Wall'],['Fixture',S.ver==='flange'?'flange, on a pole':`base, on ${{up:'floor',down:'ceiling',wall:'wall'}[S.mount]}`],[gd?'Mounting height':'Distance to wall',fmtL(S.dist)],[gd?'Side tilt':'Horizontal angle',S.pan+'°'],[gd?'Tilt from vertical':'Vertical angle',S.tlt+'°'],['Beam shaping',goboLabel()]];
+  const setup=[['Surface',gd?'Ground, fixture on a pole':'Wall'],['Fixture',S.ver==='flange'?'flange, on a pole':`base, ${{up:'horizontal',down:'horizontal, upside down',wall:'vertical wall'}[S.mount]}`],[gd?'Mounting height':'Distance to wall',fmtL(S.dist)],[gd?'Side tilt':'Horizontal angle',S.pan+'°'],[gd?'Tilt from vertical':'Vertical angle',S.tlt+'°'],['Beam shaping',goboLabel()]];
   if(S.bf==='shutter')for(const [n,p] of[['Top','T'],['Bottom','B'],['Left','L'],['Right','R']])setup.push([`Shutter ${n.toLowerCase()}`,(S['sh'+p]>=20?'out':nf(S['sh'+p],1)+' mm')+' · '+S['a'+p]+'°']);
   else{setup.push(['Gobo rotation',S.rotG+'°']);setup.push(['Keystone correction',KC?(KC.fit<0.999?`on, scaled ${Math.round(KC.fit*100)}%`:'on'):'off'])}
   setup.push(['Lens position',nf(S.lens,2)+' mm'],['Dimmer',S.dim+'%']);
@@ -852,21 +854,38 @@ $('shotBtn').addEventListener('click',()=>{
   }catch(e){fallback()}
 });
 $('shotClose').addEventListener('click',()=>$('shotDlg').close());
-const GOBO_PX=2132; /* 53.3 mm at 40 px/mm ≈ 1016 dpi */
+/* print file: 53.3 mm square at 3200 dpi */
+const GOBO_DPI=3200,GOBO_PX=Math.round(53.3/25.4*GOBO_DPI);
 function buildGobo(){
   const N=GOBO_PX,c=document.createElement('canvas');c.width=c.height=N;const x=c.getContext('2d');
-  const im=x.createImageData(N,N),d=im.data,h=GOBO_HALF;
-  for(let j=0;j<N;j++)for(let i=0;i<N;i++){const gx=(i+.5)/N*2*h-h,gy=h-(j+.5)/N*2*h,k=(j*N+i)*4;
-    const t=gx*gx+gy*gy<=400?physMask(gx,gy):0,v=Math.round(255*t);
-    d[k]=d[k+1]=d[k+2]=v;d[k+3]=255}
-  x.putImageData(im,0,0);
+  if(!x)throw new Error('canvas');
+  const h=GOBO_HALF,band=256,px=2*h/N;
+  for(let j0=0;j0<N;j0+=band){const rows=Math.min(band,N-j0),im=x.createImageData(N,rows),d=im.data;
+    for(let j=0;j<rows;j++){const gy=h-(j0+j+.5)*px,gy2=gy*gy;
+      for(let i=0;i<N;i++){const gx=(i+.5)*px-h,k=(j*N+i)*4;
+        const v=gx*gx+gy2<=400&&physMask(gx,gy)>=0.5?255:0;d[k]=d[k+1]=d[k+2]=v;d[k+3]=255}}
+    x.putImageData(im,0,j0)}
   return c;
 }
+/* add a pHYs chunk so the PNG carries 3200 dpi (53.3 mm physical size) */
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(u){let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRC[(c^u[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0}
+async function withDpi(blob,dpi){
+  const src=new Uint8Array(await blob.arrayBuffer()),ppm=Math.round(dpi/0.0254);
+  const ch=new Uint8Array(21),dv=new DataView(ch.buffer);dv.setUint32(0,9);ch.set([112,72,89,115],4);dv.setUint32(8,ppm);dv.setUint32(12,ppm);ch[16]=1;
+  dv.setUint32(17,crc32(ch.subarray(4,17)));
+  const at=8+8+13+4,out=new Uint8Array(src.length+21);out.set(src.subarray(0,at));out.set(ch,at);out.set(src.subarray(at),at+21);
+  return new Blob([out],{type:'image/png'});
+}
+function goboBlob(){return new Promise((res,rej)=>setTimeout(()=>{try{const c=buildGobo();c.toBlob(b=>b?withDpi(b,GOBO_DPI).then(res,rej):rej(new Error('encode')),'image/png')}catch(e){rej(e)}},30))}
 $('kcCopy').addEventListener('click',()=>{
-  if(S.bf!=='gobo')return;const c=buildGobo();
-  const fallback=()=>{const u=c.toDataURL('image/png');$('shotTitle').textContent=KC?'Pre-distorted gobo':'Gobo for print';$('shotImg').src=u;const a=$('shotDl');a.href=u;a.download='pre-distorted-gobo.png';a.hidden=window.self!==window.top;$('shotDlg').showModal()};
+  if(S.bf!=='gobo')return;
+  const name=KC?'Pre-distorted gobo':'Gobo',info=`${GOBO_PX}×${GOBO_PX} px, 3200 dpi = 53.3 mm square, design in the central Ø40 mm, seen from behind the fixture with its top at the top`;
+  toast(`Preparing ${name.toLowerCase()} at 3200 dpi…`);
+  const bp=goboBlob();
+  const fallback=()=>bp.then(b=>{const u=URL.createObjectURL(b);$('shotTitle').textContent=KC?'Pre-distorted gobo, 3200 dpi':'Gobo for print, 3200 dpi';$('shotImg').src=u;const a=$('shotDl');a.href=u;a.download=KC?'pre-distorted-gobo-3200dpi.png':'gobo-3200dpi.png';a.hidden=window.self!==window.top;$('shotDlg').showModal()}).catch(()=>toast('This browser could not create a 6715 px image. Try a desktop browser such as Chrome or Firefox.'));
   try{if(!navigator.clipboard||typeof ClipboardItem==='undefined')throw 0;
-    navigator.clipboard.write([new ClipboardItem({'image/png':new Promise(r=>c.toBlob(r,'image/png'))})]).then(()=>toast(`${KC?'Pre-distorted gobo':'Gobo'} copied: ${GOBO_PX}×${GOBO_PX} px = 53.3 mm square, design in the central Ø40 mm, seen from behind the fixture with its top at the top`)).catch(fallback)}catch(e){fallback()}
+    navigator.clipboard.write([new ClipboardItem({'image/png':bp})]).then(()=>toast(`${name} copied: ${info}`)).catch(fallback)}catch(e){fallback()}
 });
 
 /* ---------- About ---------- */
