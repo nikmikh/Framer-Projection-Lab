@@ -361,7 +361,7 @@ function rigFrame(w){
   const toW=p=>{const P=RIG.P,dy=p[1]-P[1],dz=p[2]-P[2],cs=Math.cos(th),sn=Math.sin(th);
     const q=[p[0],P[1]+dy*cs+dz*sn,P[2]-dy*sn+dz*cs];return[0,1,2].map(i=>(Xm[i]*q[0]+Ym[i]*q[1]+Zm[i]*q[2])/1000)};
   const Zh=add(n.map(v=>v*Math.sin(th)),t,-Math.cos(th));
-  return{n,t,th,pan,Xm,Ym,Zm,toW,e2:Zh,e1:crs(w,Zh),offG:toW(RIG.G)};
+  return{n,t,th,pan,ref,Xm,Ym,Zm,toW,e2:Zh,e1:crs(w,Zh),offG:toW(RIG.G)};
 }
 function geom(){
   const H=S.dist,a=S.pan*Math.PI/180,b=S.tlt*Math.PI/180,ca=Math.cos(a)*Math.cos(b);
@@ -527,8 +527,9 @@ function init3d(){
   const head=new THREE.Mesh(geo('body'),mBody);head.position.set(-RIG.P[0]/1000,-RIG.P[1]/1000,-RIG.P[2]/1000);pivot.add(head);
   const base=new THREE.Mesh(geo('base'),mMount),bracket=new THREE.Mesh(geo('bracket'),mMount);
   const flange=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.012,0.15),mMount);flange.position.y=0.006;
-  body.add(base,bracket,pivot,flange);const mount=base;
-  world.add(body);Object.assign(body.userData,{pivot,base,flange});
+  /* base and flange: fixed to the building; yaw: bracket, one rotation about the base axis; pivot: body, one rotation about the tilt axis */
+  const yaw=new THREE.Group();yaw.add(bracket,pivot);body.add(base,flange,yaw);const mount=base;
+  world.add(body);Object.assign(body.userData,{pivot,base,flange,yaw});
   const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.06,1,16),new THREE.MeshBasicMaterial({color:0x55575b}));pole.rotation.x=Math.PI/2;world.add(pole);
   const dims=new THREE.Group();world.add(dims);
   T3={dims,r,scene,cam,ctl,world,wallBase,patch,ctex,floor,beam,rays,axis,body,pole,scale:null,surf:null,ray:new THREE.Raycaster()};
@@ -562,7 +563,9 @@ function update3d(){
   T3.axis.geometry.dispose();T3.axis.geometry=new THREE.BufferGeometry().setFromPoints([new V(...g.rig.toW([0,RIG.FRONT,RIG.G[2]])).add(new V(...g.M)),new V(0,0,0.001)]);T3.axis.computeLineDistances();
   T3.axis.material.dashSize=g.L/40;T3.axis.material.gapSize=g.L/60;
   {const B=T3.body,u=B.userData,r=g.rig;B.position.set(...g.M);
-   B.setRotationFromMatrix(new THREE.Matrix4().makeBasis(new V(...r.Xm),new V(...r.Ym),new V(...r.Zm)));
+   const X0=crs(r.ref,r.n),Z0=r.ref.map(v=>-v);
+   B.setRotationFromMatrix(new THREE.Matrix4().makeBasis(new V(...X0),new V(...r.n),new V(...Z0)));
+   u.yaw.rotation.set(0,Math.atan2(dot(r.Zm,X0),dot(r.Zm,Z0)),0);
    u.pivot.rotation.set(-r.th,0,0);u.base.visible=S.ver==='base';u.flange.visible=S.ver==='flange';}
   drawDims(g,st,sceneScale);
   const target=T3.world.localToWorld(gnd?new V(cu,cvv,0):new V(cu*0.7+g.F[0]*0.3,cvv*0.7+g.F[1]*0.3,0)),Fw=T3.world.localToWorld(F.clone());
